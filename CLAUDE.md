@@ -18,6 +18,11 @@ Git: one commit per experiment.
   randomly chosen non-induction heads (10 seeded trials, drawn from the same
   attention-layer pool) and compare against ablating the induction heads. Writes
   `control_4_random_{TAG}.png` (bar chart: clean / random / induction).
+- `03_prev_token_heads/prev_token_heads.py` — composition: find previous-token heads
+  (offset −1 diagonal, induction heads excluded), ablate them, and re-score the induction
+  heads' stripes inside the ablated model. 2nd CLI arg overrides PREV_THRESH (default 0.5;
+  non-default runs get a `_p{..}` file tag). Writes `composition_5_scores_{TAG}.png`
+  (clean vs ablated induction score per head) and `composition_6_loss_{TAG}.png`.
 - Per-model outputs live in each experiment's `results/`, tagged with the model name
   (`{TAG}` = model basename, dots → `_`):
   - `induction_1_cliff_{TAG}.png` — per-position loss; the cliff at the 2nd copy is
@@ -34,6 +39,12 @@ Git: one commit per experiment.
 - Results (02, specificity): induction-head ablation sits 10σ (gpt2), 11σ (Qwen3-1.7B),
   and 34σ (Qwen3.5-2B) above the mean of 10 random same-size ablations — the damage is
   specific to the circuit, not to losing k heads.
+- Results (03, composition): cutting prev-token heads collapses the induction heads' own
+  attention without touching them. Qwen3-1.7B: 7 heads at thresh 0.5 → induction score
+  0.65→0.23, loss 2.7×. gpt2: needs thresh 0.3 (10 heads) → 0.58→0.18, loss 11.4× (its
+  prev-token signal is redundant across many weak heads). Qwen3.5-2B: NO prev-token heads
+  in its 6 softmax layers at either threshold — the upstream half of the circuit
+  apparently lives in the linear-attention layers (open thread).
 
 ## Running
 
