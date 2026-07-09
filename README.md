@@ -121,6 +121,19 @@ conclusion survives it.
 
 ![Mean vs zero, Qwen3-1.7B](06_mean_ablation/results/meanabl_11_compare_Qwen3-1_7B.png)
 
+### 07 — Emergence (watching the phase change)
+
+Induction heads aren't learned gradually — they emerge in a sudden phase change partway
+through training, and in-context learning appears at the same instant (Olsson et al.,
+2022). Sweeping 14 published Pythia-160m training checkpoints with the same measurements
+as experiment 01 reproduces it: between step 512 and step 1000 (~1–2B tokens) the top
+induction score jumps **0.06 → 0.90** while the 2nd-copy loss crashes **12.9 → 3.9** —
+and the 1st-copy loss (the built-in control: random tokens are unpredictable no matter
+how good the model gets) stays flat at ~13 for the entire 143k-step run.
+
+![Phase change, Pythia-160m](07_emergence/results/emergence_12_phase_pythia-160m.png)
+![Birth of the induction heads](07_emergence/results/emergence_13_filmstrip_pythia-160m.png)
+
 ## Reproducing
 
 Requirements: Python 3.12, CUDA GPU (~12 GB; models load in bf16), and:
@@ -140,6 +153,7 @@ python 03_prev_token_heads/prev_token_heads.py gpt2 0.3   # optional prev-token 
 python 04_layer_knockout/layer_knockout.py Qwen/Qwen3.5-2B
 python 05_iterative_ablation/iterative_ablation.py Qwen/Qwen3-1.7B
 python 06_mean_ablation/mean_ablation.py EleutherAI/pythia-1.4b
+python 07_emergence/emergence.py            # sweeps 14 Pythia-160m checkpoints, resumable
 ```
 
 Newer architectures absent from `HookedTransformer`'s registry (e.g. Qwen3.5) load
