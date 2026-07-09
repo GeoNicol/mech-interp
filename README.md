@@ -2,8 +2,9 @@
 
 Hands-on mechanistic interpretability experiments that locate, verify, and dismantle the
 **induction circuit** — the attention-head mechanism behind in-context learning — across
-three generations of language models: GPT-2-small (2019), Qwen3-1.7B (2025), and the
-hybrid-attention Qwen3.5-2B (2026).
+four models from three labs and three architecture eras: GPT-2-small (OpenAI, 2019),
+Pythia-1.4B (EleutherAI, 2023), Qwen3-1.7B (Alibaba, 2025), and the hybrid-attention
+Qwen3.5-2B (2026).
 
 Each experiment is a small, self-contained script built on
 [TransformerLens](https://github.com/TransformerLensOrg/TransformerLens). The sequence
@@ -12,19 +13,20 @@ components that correlate with it, then **intervene causally** to prove they imp
 
 ## Key results
 
-| | GPT-2-small | Qwen3-1.7B | Qwen3.5-2B |
-|---|---|---|---|
-| Architecture | 12L × 12H, all softmax | 28L × 16H, all softmax | 24L × 8H, **6 softmax + 18 linear-attention layers** |
-| Induction heads found | 15 | 13 | 14 (all in the 6 softmax layers) |
-| Ablating induction heads (2nd-copy loss) | **36.5×** worse | 2.9× worse | **23.3×** worse |
-| vs. ablating random heads | 10σ above random | 11σ above random | 34σ above random |
-| Cutting upstream prev-token heads | induction scores 0.58 → 0.18 | 0.65 → 0.23 | no prev-token heads exist in softmax layers |
+| | GPT-2-small | Pythia-1.4B | Qwen3-1.7B | Qwen3.5-2B |
+|---|---|---|---|---|
+| Architecture | 12L × 12H, all softmax | 24L × 16H, all softmax | 28L × 16H, all softmax | 24L × 8H, **6 softmax + 18 linear-attn layers** |
+| Induction heads found | 15 | 20 | 13 | 14 (all in the 6 softmax layers) |
+| Zero-ablating them (2nd-copy loss) | **36.5×** worse | 15.2× worse | 2.9× worse | **23.3×** worse |
+| Mean-ablating them | 23.0× | 11.4× | 3.0× | 19.6× |
+| vs. ablating random heads | 10σ above random | **102σ** above random | 11σ above random | 34σ above random |
+| Cutting upstream prev-token heads | induction scores 0.58 → 0.18 | **0.56 → 0.08** | 0.65 → 0.23 | no prev-token heads exist in softmax layers |
 
 Three findings worth highlighting:
 
-1. **Universality** — all three models, trained years apart by different labs with
+1. **Universality** — all four models, trained years apart by three different labs with
    different architectures, grow crisp induction heads at similar relative depth
-   (~50–60% through the network).
+   (~40–60% through the network).
 2. **Self-repair at scale** — Qwen3-1.7B barely degrades (2.9×) when its induction heads
    are removed: larger all-attention models carry redundant backup pathways. GPT-2 has no
    such safety net (36.5×).
@@ -106,6 +108,19 @@ below GPT-2's 36.5×, so the diffuse-compensation conclusion holds at every dept
 ![Hydra heatmaps, Qwen3-1.7B](05_iterative_ablation/results/hydra_10_heatmaps_Qwen3-1_7B.png)
 ![Hydra hunt, Qwen3-1.7B](05_iterative_ablation/results/hydra_9_rounds_Qwen3-1_7B.png)
 
+### 06 — Mean vs zero ablation (is the self-repair real?)
+
+Zeroing an activation pushes the residual stream off-distribution, which can itself fake
+"self-repair" (LayerNorm renormalises what's left). Mean ablation replaces each head's
+output with its average over 16 reference sequences — deleting its information while
+keeping the statistics in-distribution. Result: Qwen3-1.7B's mean-ablation damage (3.0×)
+matches zero-ablation (2.9×), so its robustness is **genuine functional redundancy**, not
+an artifact. In GPT-2 and Pythia, zeroing *overstated* the damage ~1.5× (off-distribution
+shock on top of information removal) — a calibration worth knowing, though every
+conclusion survives it.
+
+![Mean vs zero, Qwen3-1.7B](06_mean_ablation/results/meanabl_11_compare_Qwen3-1_7B.png)
+
 ## Reproducing
 
 Requirements: Python 3.12, CUDA GPU (~12 GB; models load in bf16), and:
@@ -124,6 +139,7 @@ python 02_random_control/random_control.py Qwen/Qwen3.5-2B
 python 03_prev_token_heads/prev_token_heads.py gpt2 0.3   # optional prev-token threshold
 python 04_layer_knockout/layer_knockout.py Qwen/Qwen3.5-2B
 python 05_iterative_ablation/iterative_ablation.py Qwen/Qwen3-1.7B
+python 06_mean_ablation/mean_ablation.py EleutherAI/pythia-1.4b
 ```
 
 Newer architectures absent from `HookedTransformer`'s registry (e.g. Qwen3.5) load
