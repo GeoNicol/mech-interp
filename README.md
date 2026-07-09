@@ -84,6 +84,21 @@ dedicated layer — consistent with linear attention acting as a local shift reg
 
 ![Knockout profile, Qwen3.5-2B](04_layer_knockout/results/knockout_7_profile_Qwen3_5-2B.png)
 
+### 05 — Iterative ablation (hunting the Hydra effect)
+
+Why does ablating Qwen3-1.7B's induction heads only hurt 2.9×? Zero-ablation measures
+the **total effect** after the network re-routes through backups (self-repair, a.k.a. the
+Hydra effect) — so this experiment ablates, **re-scores every remaining head inside the
+broken model**, recruits the backups that light up, and repeats until none remain.
+GPT-2 and Qwen3.5-2B converge in one round with zero recruits: their single-ablation
+numbers were honest. Qwen3-1.7B is the Hydra: round 2 recruits three backup heads
+(L21H9, L8H5, L18H4), lifting the damage from 2.9× to 4.5× — yet still nowhere near
+GPT-2's 36.5×, so most of its robustness is *diffuse*, spread below any thresholdable
+head. Backup heads are invisible in the clean model by construction: no amount of better
+scoring finds them — only breaking the primary circuit does.
+
+![Hydra hunt, Qwen3-1.7B](05_iterative_ablation/results/hydra_9_rounds_Qwen3-1_7B.png)
+
 ## Reproducing
 
 Requirements: Python 3.12, CUDA GPU (~12 GB; models load in bf16), and:
@@ -101,6 +116,7 @@ python 01_induction_heads/induction_heads.py Qwen/Qwen3-1.7B
 python 02_random_control/random_control.py Qwen/Qwen3.5-2B
 python 03_prev_token_heads/prev_token_heads.py gpt2 0.3   # optional prev-token threshold
 python 04_layer_knockout/layer_knockout.py Qwen/Qwen3.5-2B
+python 05_iterative_ablation/iterative_ablation.py Qwen/Qwen3-1.7B
 ```
 
 Newer architectures absent from `HookedTransformer`'s registry (e.g. Qwen3.5) load
