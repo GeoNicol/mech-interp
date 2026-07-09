@@ -97,6 +97,13 @@ GPT-2's 36.5×, so most of its robustness is *diffuse*, spread below any thresho
 head. Backup heads are invisible in the clean model by construction: no amount of better
 scoring finds them — only breaking the primary circuit does.
 
+The per-round heatmaps make the recruitment visible — grey cells are ablated heads,
+dots mark the heads recruited from that panel. The backup heads in the middle panel sit
+on cells that were dark in the clean model. The stopping rule is threshold-relative:
+rerunning at threshold 0.2 recruits 29 heads over the same 2 rounds for 6.0× — still far
+below GPT-2's 36.5×, so the diffuse-compensation conclusion holds at every depth.
+
+![Hydra heatmaps, Qwen3-1.7B](05_iterative_ablation/results/hydra_10_heatmaps_Qwen3-1_7B.png)
 ![Hydra hunt, Qwen3-1.7B](05_iterative_ablation/results/hydra_9_rounds_Qwen3-1_7B.png)
 
 ## Reproducing
