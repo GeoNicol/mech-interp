@@ -33,11 +33,16 @@ OUT.mkdir(exist_ok=True)
 torch.set_grad_enabled(False)
 DEV = "cuda" if torch.cuda.is_available() else "cpu"
 SEQ = 50
-THRESH = 0.3      # induction-score threshold, same as 01
+# Induction-score threshold (default matches 01). "Hydra is out of heads" always means
+# "out of heads ABOVE this bar" — lower it (2nd CLI arg) to chase the sub-threshold tail
+# where diffuse compensation lives.
+THRESH = float(sys.argv[2]) if len(sys.argv) > 2 else 0.3
 MAX_ROUNDS = 10   # safety stop; real runs converge much sooner
 
 MODEL = sys.argv[1] if len(sys.argv) > 1 else "gpt2"
 TAG = MODEL.split("/")[-1].replace(".", "_")
+if THRESH != 0.3:
+    TAG += f"_t{int(THRESH * 100)}"   # non-default threshold gets its own output files
 DTYPE = torch.float32 if MODEL == "gpt2" else torch.bfloat16
 
 # ── serve (same as 01–04) ─────────────────────────────────────────────────────
@@ -100,9 +105,11 @@ print(f"round 0 (clean): 2nd-copy loss {clean_loss:.3f}")
 # ── the hunt: ablate, re-score, recruit, repeat ───────────────────────────────
 dead = set()
 losses, recruits_per_round = [clean_loss], []
+snapshots = []   # one (scores, dead-at-scoring-time, recruits-found) per scoring pass, for the heatmaps
 for r in range(1, MAX_ROUNDS + 1):
     new = [(L, H) for L in range(nL) for H in range(nH)
            if scores[L, H] >= THRESH and (L, H) not in dead]
+    snapshots.append((scores.clone(), set(dead), list(new)))
     if not new:
         print(f"round {r}: no remaining head scores >= {THRESH} "
               f"(max remaining: {max((scores[L,H].item() for L in attn_layers for H in range(nH) if (L,H) not in dead), default=0):.2f}) — Hydra is out of heads.")
@@ -136,3 +143,28 @@ ax.set_xticklabels(["clean"] + [f"round {i}" for i in range(1, len(losses))])
 ax.set_ylabel("2nd-copy loss (nats, log scale)")
 ax.set_title(f"Hydra hunt ({MODEL}): iterative ablation until no induction head remains", fontweight="bold")
 fig.tight_layout(); fig.savefig(OUT / f"hydra_9_rounds_{TAG}.png", dpi=120); print(f"→ results/hydra_9_rounds_{TAG}.png")
+
+# Chart 2 — the re-scoring heatmaps: one panel per scoring pass. Ablated heads are greyed
+# out; white dots mark the heads recruited FROM that panel's scores. The Hydra effect is
+# panel 2: heads that were dark in panel 1 light up once the primary circuit is dead.
+cmap = plt.cm.viridis.copy()
+cmap.set_bad("#D9D9D9")   # dead heads render grey
+vmax = max(s.max().item() for s, _, _ in snapshots)
+n = len(snapshots)
+fig, axes = plt.subplots(1, n, figsize=(4.6 * n, 5.2), squeeze=False)
+for i, (s, dead_then, recruits) in enumerate(snapshots):
+    disp = s.clone()
+    for L, H in dead_then:
+        disp[L, H] = float("nan")
+    ax = axes[0][i]
+    im = ax.imshow(disp, cmap=cmap, aspect="auto", vmin=0, vmax=vmax)
+    for L, H in recruits:
+        ax.text(H, L, "●", ha="center", va="center", color="white", fontsize=8)
+    ax.set_title("round 0: clean scores" if i == 0 else f"re-scored after round {i} ablation\n({len(dead_then)} heads dead)",
+                 fontsize=10)
+    ax.set_xlabel("head")
+    if i == 0:
+        ax.set_ylabel("layer")
+fig.colorbar(im, ax=[axes[0][i] for i in range(n)], label="induction score", fraction=0.02)
+fig.suptitle(f"Hydra heatmaps ({MODEL}): grey = ablated, ● = recruited from this panel", fontweight="bold")
+fig.savefig(OUT / f"hydra_10_heatmaps_{TAG}.png", dpi=120, bbox_inches="tight"); print(f"→ results/hydra_10_heatmaps_{TAG}.png")
