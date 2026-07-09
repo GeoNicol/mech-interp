@@ -138,10 +138,11 @@ for i, b in enumerate(bars[1:], start=1):
     ax.text(b.get_x() + b.get_width() / 2, b.get_height() * 1.05,
             f"+{len(recruits_per_round[i-1])} heads", ha="center", fontsize=9, color="#54534C")
 ax.set_yscale("log")
+ax.set_ylim(top=max(losses) * 1.8)   # headroom so the "+N heads" annotations don't clip
 ax.set_xticks(list(xs))
 ax.set_xticklabels(["clean"] + [f"round {i}" for i in range(1, len(losses))])
 ax.set_ylabel("2nd-copy loss (nats, log scale)")
-ax.set_title(f"Hydra hunt ({MODEL}): iterative ablation until no induction head remains", fontweight="bold")
+ax.set_title(f"Hydra hunt: iterative ablation until no induction head remains\n{MODEL}", fontweight="bold")
 fig.tight_layout(); fig.savefig(OUT / f"hydra_9_rounds_{TAG}.png", dpi=120); print(f"→ results/hydra_9_rounds_{TAG}.png")
 
 # Chart 2 — the re-scoring heatmaps: one panel per scoring pass. Ablated heads are greyed
@@ -151,7 +152,8 @@ cmap = plt.cm.viridis.copy()
 cmap.set_bad("#D9D9D9")   # dead heads render grey
 vmax = max(s.max().item() for s, _, _ in snapshots)
 n = len(snapshots)
-fig, axes = plt.subplots(1, n, figsize=(4.6 * n, 5.2), squeeze=False)
+fig, axes = plt.subplots(1, n, figsize=(4.6 * n, 5.8), squeeze=False)
+fig.subplots_adjust(top=0.80)   # room for the suptitle above the two-line panel titles
 for i, (s, dead_then, recruits) in enumerate(snapshots):
     disp = s.clone()
     for L, H in dead_then:

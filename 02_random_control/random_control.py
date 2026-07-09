@@ -132,6 +132,6 @@ ax.scatter([1] * TRIALS, rand_losses, color="#54534C", zorder=3, s=18, label=f"{
 ax.set_xticks(range(3))
 ax.set_xticklabels(["clean", f"{k} random heads\nablated", f"{k} induction heads\nablated"])
 ax.set_ylabel("2nd-copy loss (nats)")
-ax.set_title(f"Specificity control ({MODEL}): only the induction heads matter", fontweight="bold")
+ax.set_title(f"Specificity control: only the induction heads matter\n{MODEL}", fontweight="bold")
 ax.legend()
 fig.tight_layout(); fig.savefig(OUT / f"control_4_random_{TAG}.png", dpi=120); print(f"→ results/control_4_random_{TAG}.png")
