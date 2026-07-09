@@ -70,6 +70,20 @@ CLI arg), while Qwen3.5-2B has no softmax prev-token heads at all.
 
 ![Composition, Qwen3-1.7B](03_prev_token_heads/results/composition_5_scores_Qwen3-1_7B.png)
 
+### 04 — Layer-knockout profile (tracing the circuit into linear attention)
+
+Qwen3.5's linear-attention layers have no attention patterns to score — but they can
+still be cut. Knocking out one attention sublayer at a time and re-measuring the
+induction heads' stripes *inside the ablated model* yields a layer-by-layer dependency
+profile (a lesion study). In GPT-2 the profile validates the method: layer 0 is
+foundational, and the prev-token layers dip mildly (redundancy, as found in 03). In
+Qwen3.5-2B, the **linear layers immediately preceding the two main induction layers dip
+hardest** (L14 feeding L15, L10 feeding L11): the shifted-token signal appears to be
+supplied just-in-time by adjacent linear-attention layers rather than by one early
+dedicated layer — consistent with linear attention acting as a local shift register.
+
+![Knockout profile, Qwen3.5-2B](04_layer_knockout/results/knockout_7_profile_Qwen3_5-2B.png)
+
 ## Reproducing
 
 Requirements: Python 3.12, CUDA GPU (~12 GB; models load in bf16), and:
@@ -86,6 +100,7 @@ python 01_induction_heads/induction_heads.py
 python 01_induction_heads/induction_heads.py Qwen/Qwen3-1.7B
 python 02_random_control/random_control.py Qwen/Qwen3.5-2B
 python 03_prev_token_heads/prev_token_heads.py gpt2 0.3   # optional prev-token threshold
+python 04_layer_knockout/layer_knockout.py Qwen/Qwen3.5-2B
 ```
 
 Newer architectures absent from `HookedTransformer`'s registry (e.g. Qwen3.5) load
