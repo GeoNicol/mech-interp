@@ -10,6 +10,8 @@ Each experiment is a small, self-contained script built on
 [TransformerLens](https://github.com/TransformerLensOrg/TransformerLens). The sequence
 follows the standard interpretability workflow: **observe** a behaviour, **localize** the
 components that correlate with it, then **intervene causally** to prove they implement it.
+Experiments 01–07 dissect the induction circuit; experiment 08 applies the same
+locate-then-ablate playbook to a safety problem — the refusal direction in a chat model.
 
 ## Key results
 
@@ -134,6 +136,21 @@ how good the model gets) stays flat at ~13 for the entire 143k-step run.
 ![Phase change, Pythia-160m](07_emergence/results/emergence_12_phase_pythia-160m.png)
 ![Birth of the induction heads](07_emergence/results/emergence_13_filmstrip_pythia-160m.png)
 
+### 08 — The refusal direction (a safety application)
+
+The same locate-then-intervene playbook, aimed at safety. Refusal in chat models is
+mediated by a single direction in activation space (Arditi et al., 2024): the difference
+between the mean residual-stream activation on harmful vs harmless prompts. Extracting it
+from Qwen2.5-1.5B-Instruct (layer 21) and intervening across all layers gives a clean
+double dissociation — **projecting the direction out** drops harmful-prompt refusal from
+100% to 17% (necessary), while **adding it in** drives harmless-prompt refusal from 0% to
+100% (sufficient). Structurally this is experiment 01's ablation moved from an attention
+head to a direction. It's also the tool behind an open safety question: if a model that
+was "unlearned" starts answering forgotten questions once this direction is removed, its
+unlearning was really disguised refusal — the knowledge was never gone.
+
+![Refusal direction, Qwen2.5-1.5B-Instruct](08_refusal_direction/results/refusal_14_control_Qwen2_5-1_5B-Instruct.png)
+
 ## Reproducing
 
 Requirements: Python 3.12, CUDA GPU (~12 GB; models load in bf16), and:
@@ -154,6 +171,7 @@ python 04_layer_knockout/layer_knockout.py Qwen/Qwen3.5-2B
 python 05_iterative_ablation/iterative_ablation.py Qwen/Qwen3-1.7B
 python 06_mean_ablation/mean_ablation.py EleutherAI/pythia-1.4b
 python 07_emergence/emergence.py            # sweeps 14 Pythia-160m checkpoints, resumable
+python 08_refusal_direction/refusal_direction.py
 ```
 
 Newer architectures absent from `HookedTransformer`'s registry (e.g. Qwen3.5) load
