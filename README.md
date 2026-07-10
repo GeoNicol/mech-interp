@@ -180,6 +180,30 @@ ROUGE only; TOFU's probability/truth-ratio metrics may rank RMU differently.)
 
 ![Unlearning recovery, Llama-3.2-1B](09_unlearning_refusal/results/unlearning_15_recovery_Llama-3_2-1B.png)
 
+### 10 — The probability metric (the finding sharpens)
+
+Greedy-generation ROUGE only sees the model's *top* choice; "does the model know X" is
+really about the *probability* it assigns to the true answer — TOFU's own metric family.
+Rerunning experiment 09 with length-normalized P(correct answer) turns the murky result
+sharp. Against `full` = 0.90 (knows) and `retain90` = 0.12 (never knew, and ablation-flat
+— the control):
+
+- **NPO — suppressed, not erased.** Its baseline answer probability (0.042) sits *below*
+  the never-learned floor, and ablating the refusal direction lifts it to 0.178 — a 4×
+  jump from below-floor to above-floor. The forgotten knowledge was hidden behind a
+  removable refusal-like direction, exactly the doc's hypothesis. Crucially, ablation
+  lifts *only* NPO (it lowers `full`, leaves `retain90`/GradDiff flat), so this isn't
+  generic probability inflation — it's specific.
+- **GradDiff — genuine forgetting.** Baseline at the floor, no meaningful recovery.
+- **RMU — didn't forget on QA at all.** Baseline 0.86 ≈ `full`; its unlearning doesn't
+  show up in answer probability (its effect is likely on downstream/multiple-choice
+  tasks). A reminder that "unlearned" is always relative to a metric.
+
+The lesson mirrors the interp half of this repo: the intervention is only as good as the
+measurement. Switching from argmax to probability changed which methods look safe.
+
+![Probability recovery, Llama-3.2-1B](10_unlearning_probability/results/unlearning_17_prob_Llama-3_2-1B.png)
+
 ## Reproducing
 
 Requirements: Python 3.12, CUDA GPU (~12 GB; models load in bf16), and:
@@ -203,6 +227,7 @@ python 07_emergence/emergence.py            # sweeps 14 Pythia-160m checkpoints,
 python 08_refusal_direction/refusal_direction.py
 python 08_refusal_direction/refusal_heads.py        # refusal-writer heatmap
 python 09_unlearning_refusal/unlearning_refusal.py  # downloads 5 TOFU checkpoints, resumable
+python 10_unlearning_probability/unlearning_probability.py  # probability metric (reuses 09's checkpoints)
 ```
 
 Newer architectures absent from `HookedTransformer`'s registry (e.g. Qwen3.5) load
