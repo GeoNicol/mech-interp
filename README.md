@@ -10,8 +10,9 @@ Each experiment is a small, self-contained script built on
 [TransformerLens](https://github.com/TransformerLensOrg/TransformerLens). The sequence
 follows the standard interpretability workflow: **observe** a behaviour, **localize** the
 components that correlate with it, then **intervene causally** to prove they implement it.
-Experiments 01–07 dissect the induction circuit; experiment 08 applies the same
-locate-then-ablate playbook to a safety problem — the refusal direction in a chat model.
+Experiments 01–07 dissect the induction circuit; experiments 08–09 apply the same
+locate-then-ablate playbook to AI safety — finding the refusal direction in a chat model,
+then using it to probe whether "unlearned" models truly forgot or merely learned to suppress.
 
 ## Key results
 
@@ -151,6 +152,34 @@ unlearning was really disguised refusal — the knowledge was never gone.
 
 ![Refusal direction, Qwen2.5-1.5B-Instruct](08_refusal_direction/results/refusal_14_control_Qwen2_5-1_5B-Instruct.png)
 
+`refusal_heads.py` builds the induction-heatmap analog: dotting each attention head's
+output with the refusal direction gives a layer × head map of **which heads write refusal**
+— concentrated in the upper-middle layers, just as induction heads sit mid-network.
+
+![Refusal heads, Qwen2.5-1.5B-Instruct](08_refusal_direction/results/refusal_16_heads_Qwen2_5-1_5B-Instruct.png)
+
+### 09 — Did the model forget, or just suppress? (Project 3)
+
+The payoff experiment. Unlearning methods claim to *remove* knowledge, but "won't answer"
+looks identical whether the knowledge is gone or hidden behind a refusal-like reflex.
+Using the experiment-08 tool, we ablate a suppression direction on TOFU-unlearned
+Llama-3.2-1B checkpoints and measure whether the forgotten authors' answers come back
+(ROUGE-L recall). Two references anchor the scale: `full` (knows the authors, 0.79) and
+`retain90` (never learned them, 0.36) — and `retain90` is the control that makes it
+trustworthy, since ablation leaves it flat (you can't recover what was never there).
+
+The honest result is more nuanced than the hypothesis predicted. GradDiff and NPO do
+suppress generation to (or below) the never-learned floor — NPO's 0.13 sits *under* the
+floor, the signature of active refusal-like suppression rather than mere ignorance — but
+ablating the refusal direction only nudges them back up (GradDiff +0.03, NPO +0.06),
+nowhere near the 0.79 ceiling. So at this scale the refusal direction is **not** a master
+key that undoes GA/NPO forgetting. The surprise is RMU: on free-form generation this
+checkpoint still answers forget questions (0.73 ≈ `full`), so its "unlearning" is
+metric-dependent — it doesn't show up in greedy generation at all. (Scope: generation
+ROUGE only; TOFU's probability/truth-ratio metrics may rank RMU differently.)
+
+![Unlearning recovery, Llama-3.2-1B](09_unlearning_refusal/results/unlearning_15_recovery_Llama-3_2-1B.png)
+
 ## Reproducing
 
 Requirements: Python 3.12, CUDA GPU (~12 GB; models load in bf16), and:
@@ -172,6 +201,8 @@ python 05_iterative_ablation/iterative_ablation.py Qwen/Qwen3-1.7B
 python 06_mean_ablation/mean_ablation.py EleutherAI/pythia-1.4b
 python 07_emergence/emergence.py            # sweeps 14 Pythia-160m checkpoints, resumable
 python 08_refusal_direction/refusal_direction.py
+python 08_refusal_direction/refusal_heads.py        # refusal-writer heatmap
+python 09_unlearning_refusal/unlearning_refusal.py  # downloads 5 TOFU checkpoints, resumable
 ```
 
 Newer architectures absent from `HookedTransformer`'s registry (e.g. Qwen3.5) load
