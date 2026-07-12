@@ -50,7 +50,8 @@
     model <select id="modelsel"></select>
     &nbsp;scene <select id="scenesel">
       <option value="induction">induction</option>
-      <option value="refusal" selected>refusal</option></select>
+      <option value="refusal" selected>refusal</option>
+      <option value="unlearning">unlearning</option></select>
   </div>
   <div id="modelline" class="stats"></div>
   <div id="rateline" class="stats"></div>
@@ -109,7 +110,8 @@ idxScript.onload = () => {
   for (const t of (idx.refusal || [tag])) sel.add(new Option(t, t, false, t === tag));
   sel.onchange = () => location.href = "refusal.html?tag=" + encodeURIComponent(sel.value);
   const sc = document.getElementById("scenesel");
-  sc.onchange = () => { if (sc.value === "induction") location.href = "viewer.html"; };
+  sc.onchange = () => { if (sc.value === "induction") location.href = "viewer.html";
+                        else if (sc.value === "unlearning") location.href = "unlearning.html"; };
 };
 document.head.appendChild(idxScript);
 

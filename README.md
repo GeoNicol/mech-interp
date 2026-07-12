@@ -228,6 +228,21 @@ refusing). Every card shows the model's actual generated answer.
 ![Refusal scene, baseline](11_induction_3d/results/refusal_20_baseline_Qwen2_5-1_5B-Instruct.png)
 ![Refusal scene, direction ablated](11_induction_3d/results/refusal_21_ablate_Qwen2_5-1_5B-Instruct.png)
 
+A third scene (`unlearning.html`, from experiments 09–10) turns the "forget or suppress?"
+question into a game. The board is **the forgotten fleet** — one card per TOFU forget-set
+author — and a **knowledge gauge** rises beside it, bracketed by two reference bands: the
+`full` ceiling (knows the authors) and the `retain90` floor (never learned them). Pick a
+checkpoint (full / retain90 / GradDiff / NPO / RMU), a metric (answer probability or
+generation ROUGE), and an intervention (baseline / ablate refusal direction / ablate
+forget direction). The payoff: switch to **NPO** on the probability metric and ablate the
+refusal direction — the gauge leaps from *below* the floor up *past* it (suppressed, not
+erased), while a ghost ring marks where baseline sat. Do the same on **GradDiff** and it
+barely moves (genuinely forgotten); **RMU** already sits at the ceiling (never forgot on
+QA). `retain90` staying flat under ablation is the control that makes the jump trustworthy.
+
+![Unlearning scene, NPO baseline (below the floor)](11_induction_3d/results/unlearning_23_npo_baseline_Llama-3_2-1B.png)
+![Unlearning scene, NPO after ablating the refusal direction (above the floor)](11_induction_3d/results/unlearning_24_npo_recovered_Llama-3_2-1B.png)
+
 `capture_3d.py` records one clean + one ablated pass (losses, top-1 predictions,
 attention edges, per-head firing intensity) into a data file; `viewer.html` is fully
 self-contained — double-click it, no server, no build step. A model selector in the
@@ -264,6 +279,7 @@ python 10_unlearning_probability/unlearning_probability.py  # probability metric
 python 11_induction_3d/capture_3d.py                # records the replay data, then just
                                                     # open 11_induction_3d/viewer.html
 python 11_induction_3d/capture_refusal.py           # refusal scene → refusal.html
+python 11_induction_3d/capture_unlearning.py        # unlearning scene → unlearning.html
 ```
 
 Newer architectures absent from `HookedTransformer`'s registry (e.g. Qwen3.5) load
