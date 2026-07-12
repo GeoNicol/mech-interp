@@ -10,12 +10,13 @@
   .panel { position:absolute; background:rgba(10,14,22,.78); border:1px solid #22304a;
            border-radius:12px; padding:11px 15px; backdrop-filter:blur(6px);
            box-shadow:0 4px 24px rgba(0,0,0,.35); }
-  #info  { top:14px; left:14px; max-width:330px; }
+  #info  { top:14px; left:14px; max-width:340px; }
   #info h1 { margin:0 0 6px; font:600 19px/1.2 "Cascadia Code", Consolas, "SF Mono", monospace;
              letter-spacing:.4px; color:#eaf1fa; }
   #info h1::before { content:"●"; color:#35e0ff; font-size:11px; vertical-align:2px; margin-right:7px; }
   #info .stats { font-size:12px; color:#93a5bf; }
   #info .ratio { color:#ff8272; font-weight:600; }
+  #info .hits { color:#4fd58a; font-weight:600; }
   #controls { right:14px; top:14px; width:228px; }
   #controls label { display:flex; align-items:center; gap:8px; margin:7px 0; cursor:pointer; }
   #controls input[type=range] { flex:1; accent-color:#35e0ff; }
@@ -55,18 +56,19 @@
   </div>
   <div id="modelline" class="stats"></div>
   <div id="statline" class="stats"></div>
+  <div id="hitline" class="stats"></div>
 </div>
 <div id="controls" class="panel" style="display:none">
   <div id="ablate" class="ablate"><div class="sw"></div><span>ABLATE induction heads</span></div>
   <label>attention ≥ <input id="thresh" type="range" min="0.03" max="0.6" step="0.01" value="0.10">
     <span id="threshv">0.10</span></label>
   <label><input id="indonly" type="checkbox"> induction heads only</label>
-  <label id="boslab"><input id="hidebos" type="checkbox" checked> hide attention-to-BOS</label>
+  <label id="boslab"><input id="showsink" type="checkbox" checked> attention sink (BOS well)</label>
   <div class="legend">
     <div><span class="k" style="background:#35e0ff"></span>induction head / its attention</div>
     <div><span class="k" style="background:#8899aa"></span>other heads (glow = firing)</div>
-    <div><span class="k" style="background:#4fd58a"></span>low loss&nbsp;&nbsp;
-         <span class="k" style="background:#e0483a"></span>high loss</div>
+    <div><span class="k" style="background:#4fd58a"></span>hit — predicted right&nbsp;&nbsp;
+         <span class="k" style="background:#e0483a"></span>miss</div>
     <div style="margin-top:4px">drag = orbit · wheel = zoom · right-drag = pan</div>
   </div>
 </div>
@@ -118,24 +120,35 @@ function init(D) {
   for (const id of ["info", "controls", "pred", "timeline"])
     document.getElementById(id).style.display = "";
 
-  const N = D.tokens.length, nL = D.nL, nH = D.nH;
+  const N = D.tokens.length, nL = D.nL, nH = D.nH, P = D.P, SEQ = D.SEQ;
   const attnSet = new Set(D.attnLayers);
   const indSet = new Set(D.induction.map(([L, H]) => L * 4096 + H));
 
-  // ── layout ──────────────────────────────────────────────────────────────────
-  const DX = 1.0, DY = 1.6, DZ = 1.4, Y0 = 5;
-  const xPos = i => (i - (N - 1) / 2) * DX;
+  // ── battleship layout: two boards flanking a wall of heads, BOS well behind ─
+  const COLS = 10, ROWS = Math.ceil(SEQ / COLS), CS = 2.0;      // cell size
+  const GAP = 10;                                               // water between the boards
+  const BX = COLS * CS / 2 + GAP / 2;                           // board-center |x|
+  const DY = Math.min(1.4, 26 / nL), Y0 = 3.5;                  // heads wall vertical pitch
+  const DZ = Math.min(1.4, 20 / nH);
+  const topY = Y0 + nL * DY;
   const yPos = L => Y0 + L * DY;
   const zPos = h => (h - (nH - 1) / 2) * DZ;
-  const zTok = (nH - 1) / 2 * DZ + 4;          // token strip in front of the head grid
-  const zBar = zTok + 2.2;                      // loss bars just in front of the tokens
-  const topY = Y0 + nL * DY;
+  const SINK = new THREE.Vector3(0, 0.8, -(ROWS * CS / 2 + Math.max(zPos(nH - 1), 0) + 8));
+  // world position of token i (BOS lives in the sink well, off the boards)
+  function pos3(i, y) {
+    if (i < P) return new THREE.Vector3(SINK.x, y + SINK.y, SINK.z);
+    const k = i - P, onB2 = k >= SEQ, j = onB2 ? k - SEQ : k;
+    return new THREE.Vector3(
+      (onB2 ? BX : -BX) + (j % COLS - (COLS - 1) / 2) * CS,
+      y,
+      (Math.floor(j / COLS) - (ROWS - 1) / 2) * CS);
+  }
 
   // ── renderer / composer (bloom turns the additive lines into light) ─────────
   const scene = new THREE.Scene();
-  scene.fog = new THREE.Fog(0x070b12, 110, 260);
+  scene.fog = new THREE.Fog(0x070b12, 100, 240);
   const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 500);
-  camera.position.set(-44, 30, zTok + 46);
+  camera.position.set(0, 34, 44);
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(innerWidth, innerHeight);
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
@@ -145,7 +158,7 @@ function init(D) {
   const bloom = new THREE.UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.9, 0.55, 0.35);
   composer.addPass(bloom);
   const controls = new THREE.OrbitControls(camera, renderer.domElement);
-  controls.target.set(0, Y0 + nL * DY * 0.35, 0);
+  controls.target.set(0, 5, 0);
   controls.enableDamping = true;
   controls.autoRotate = true;                   // slow reveal until the user grabs the scene
   controls.autoRotateSpeed = 0.25;
@@ -158,54 +171,74 @@ function init(D) {
 
   // ── atmosphere: grid floor for depth ────────────────────────────────────────
   const grid = new THREE.GridHelper(260, 64, 0x18233a, 0x101827);
-  grid.position.y = -0.02;
+  grid.position.y = -0.04;
   scene.add(grid);
 
-  // ── token strip (tiles tinted by role: prefix / copy1 / copy2) ──────────────
-  const tileGeo = new THREE.BoxGeometry(DX * 0.86, 0.12, 1.5);
-  const tiles = new THREE.InstancedMesh(tileGeo, new THREE.MeshBasicMaterial(), N);
-  const tileCol = i => i < D.P ? 0x232936 : i < D.P + D.SEQ ? 0x1b3350 : 0x372a5c;
-  const m4 = new THREE.Matrix4(), c3 = new THREE.Color();
-  for (let i = 0; i < N; i++) {
-    m4.identity().setPosition(xPos(i), 0, zTok);
-    tiles.setMatrixAt(i, m4);
-    tiles.setColorAt(i, c3.setHex(tileCol(i)));
+  // ── the two game boards: one canvas texture each, grid + coords + tokens ────
+  function boardMesh(frameHex, coordHex) {
+    const cv = document.createElement("canvas");
+    cv.width = COLS * 100 + 60; cv.height = ROWS * 100 + 60;
+    const g = cv.getContext("2d");
+    g.fillStyle = "#0d1420"; g.fillRect(0, 0, cv.width, cv.height);
+    g.strokeStyle = frameHex; g.lineWidth = 4;
+    g.strokeRect(58, 58, COLS * 100 + 2, ROWS * 100 + 2);
+    g.font = "26px 'Cascadia Code', Consolas, monospace"; g.fillStyle = coordHex;
+    g.textAlign = "center"; g.textBaseline = "middle";
+    for (let c = 0; c < COLS; c++) g.fillText(String.fromCharCode(65 + c), 60 + c * 100 + 50, 32);
+    for (let r = 0; r < ROWS; r++) g.fillText(String(r + 1), 30, 60 + r * 100 + 50);
+    g.strokeStyle = "#1c2941"; g.lineWidth = 1.5;
+    for (let c = 1; c < COLS; c++) { g.beginPath(); g.moveTo(60 + c * 100, 60); g.lineTo(60 + c * 100, 60 + ROWS * 100); g.stroke(); }
+    for (let r = 1; r < ROWS; r++) { g.beginPath(); g.moveTo(60, 60 + r * 100); g.lineTo(60 + COLS * 100, 60 + r * 100); g.stroke(); }
+    g.font = "20px 'Cascadia Code', Consolas, monospace"; g.fillStyle = "#7788a5";
+    for (let j = 0; j < SEQ; j++) {           // both boards hold the SAME random block
+      const txt = JSON.stringify(D.tokens[P + j]).slice(1, -1).slice(0, 7);
+      g.fillText(txt, 60 + (j % COLS) * 100 + 50, 60 + Math.floor(j / COLS) * 100 + 50, 92);
+    }
+    const w = COLS * CS + 60 / 100 * CS, h = ROWS * CS + 60 / 100 * CS;
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h),
+      new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cv) }));
+    m.rotation.x = -Math.PI / 2;
+    // canvas margin (coords row/col) sits top-left: shift so CELLS align with pos3()
+    m.position.set(-60 / 100 * CS / 2, 0.01, -60 / 100 * CS / 2);
+    const holder = new THREE.Group(); holder.add(m);
+    return holder;
   }
-  scene.add(tiles);
+  const b1 = boardMesh("#2e5a8f", "#5d7ba3"); b1.position.set(-BX, 0, 0); scene.add(b1);
+  const b2 = boardMesh("#5a4390", "#8a76b8"); b2.position.set(BX, 0, 0); scene.add(b2);
 
-  // translucent wall where the 2nd copy begins — the cliff line
-  const wall = new THREE.Mesh(
-    new THREE.PlaneGeometry(2.4 + zTok * 2, topY + 2),
-    new THREE.MeshBasicMaterial({ color: 0x9faaad, transparent: true, opacity: 0.06, side: THREE.DoubleSide }));
-  wall.rotation.y = Math.PI / 2;
-  wall.position.set(xPos(D.P + D.SEQ) - DX / 2, (topY + 2) / 2, 0);
-  scene.add(wall);
-
-  // region captions on the floor
   function textSprite(txt, px, hex, w, h) {
     const cv = document.createElement("canvas"); cv.width = 512; cv.height = 128;
     const g = cv.getContext("2d");
     g.fillStyle = hex; g.font = px + "px 'Segoe UI', system-ui, sans-serif";
-    g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(txt, 256, 64);
+    g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(txt, 256, 64, 492);
     const sp = new THREE.Sprite(new THREE.SpriteMaterial({
       map: new THREE.CanvasTexture(cv), transparent: true, depthWrite: false }));
     sp.scale.set(w, h, 1);
     return sp;
   }
-  const cap1 = textSprite("copy 1", 44, "#41597a", 12, 3);
-  cap1.position.set(xPos(D.P + D.SEQ / 2), 0.4, zBar + 3.2);
-  const cap2 = textSprite("copy 2 — predictable only by looking back", 34, "#6b5a96", 19, 4.8);
-  cap2.position.set(xPos(D.P + D.SEQ * 1.5), 0.4, zBar + 3.2);
+  const cap1 = textSprite("COPY 1 — the fleet", 40, "#5d7ba3", 16, 4);
+  cap1.position.set(-BX, 0.4, ROWS * CS / 2 + 3);
+  const cap2 = textSprite("COPY 2 — call your shots", 40, "#8a76b8", 16, 4);
+  cap2.position.set(BX, 0.4, ROWS * CS / 2 + 3);
   scene.add(cap1, cap2);
-  for (let L = 0; L < nL; L += 5) {             // sparse layer labels give the wall a scale
-    const lab = textSprite("L" + L, 40, "#41597a", 8, 2);
-    lab.position.set(xPos(0) - 6, yPos(L), 0);
-    scene.add(lab);
-  }
 
-  // ── head grid (instanced spheres; glow driven by captured ‖z‖ activity) ─────
+  // the BOS well: where heads park attention they don't need (an attention sink)
+  if (P > 0) {
+    const well = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.9, 0.8, 24),
+      new THREE.MeshBasicMaterial({ color: 0x1a2438 }));
+    well.position.copy(SINK).y = 0.4;
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(1.5, 0.09, 8, 32),
+      new THREE.MeshBasicMaterial({ color: 0x33445f }));
+    rim.rotation.x = Math.PI / 2; rim.position.copy(SINK).y = 0.82;
+    const wlab = textSprite("BOS — attention sink", 30, "#4f6180", 13, 3.2);
+    wlab.position.copy(SINK).y = 2.6;
+    scene.add(well, rim, wlab);
+  } else document.getElementById("boslab").style.display = "none";
+
+  // ── the wall of heads between the boards ────────────────────────────────────
   const headGeo = new THREE.SphereGeometry(0.32, 14, 12);
   const heads = new THREE.InstancedMesh(headGeo, new THREE.MeshBasicMaterial(), nL * nH);
+  const m4 = new THREE.Matrix4(), c3 = new THREE.Color();
   for (let L = 0; L < nL; L++)
     for (let h = 0; h < nH; h++) {
       const s = attnSet.has(L) ? 1 : 0.001;     // hybrid models: linear-attn layers have no heads to show
@@ -214,14 +247,12 @@ function init(D) {
       heads.setColorAt(L * nH + h, c3.setHex(0x1a2436));
     }
   scene.add(heads);
-  // hybrid models: render pattern-less linear-attention layers as faint slabs
   for (let L = 0; L < nL; L++) if (!attnSet.has(L)) {
-    const slab = new THREE.Mesh(new THREE.BoxGeometry(3, 0.25, (nH - 1) * DZ + 1),
+    const slab = new THREE.Mesh(new THREE.BoxGeometry(3, 0.22, (nH - 1) * DZ + 1),
       new THREE.MeshBasicMaterial({ color: 0x141d2e, transparent: true, opacity: 0.55 }));
     slab.position.set(0, yPos(L), 0);
     scene.add(slab);
   }
-  // cyan rings mark the induction heads (they turn red when ablated)
   const rings = [];
   const ringGeo = new THREE.TorusGeometry(0.54, 0.06, 8, 30);
   for (const [L, H, s] of D.induction) {
@@ -230,16 +261,20 @@ function init(D) {
     r.scale.setScalar(0.8 + s * 0.5);
     rings.push(r); scene.add(r);
   }
+  for (let L = 0; L < nL; L += 5) {
+    const lab = textSprite("L" + L, 40, "#41597a", 7, 1.8);
+    lab.position.set(0, yPos(L), zPos(nH - 1) + 2.5);
+    scene.add(lab);
+  }
 
-  // playhead pillar: a faint column of light over the token being read
-  const pillar = new THREE.Mesh(new THREE.BoxGeometry(0.5, topY + 1, 0.5),
+  // playhead pillar: a faint column of light over the cell being read
+  const pillar = new THREE.Mesh(new THREE.BoxGeometry(0.6, topY + 1, 0.6),
     new THREE.MeshBasicMaterial({ color: 0x24405e, transparent: true, opacity: 0.5,
       blending: THREE.AdditiveBlending, depthWrite: false }));
-  pillar.position.y = (topY + 1) / 2;
   scene.add(pillar);
 
   // ── attention arcs: one LineSegments rebuilt whenever the playhead moves ────
-  const SEGS = 14;                                   // curve samples per edge
+  const SEGS = 14;
   const maxEdges = nL * nH * 3 + 64;
   const arcPos = new Float32Array(maxEdges * SEGS * 2 * 3);
   const arcCol = new Float32Array(maxEdges * SEGS * 2 * 3);
@@ -251,7 +286,6 @@ function init(D) {
   arcs.frustumCulled = false;
   scene.add(arcs);
 
-  // bucket the flat edge arrays by destination position, once per condition
   function bucket(cond) {
     const e = D[cond].edges, out = Array.from({ length: N }, () => []);
     for (let i = 0; i < e.L.length; i++) out[e.D[i]].push([e.L[i], e.H[i], e.S[i], e.W[i]]);
@@ -259,14 +293,13 @@ function init(D) {
   }
   const byDest = { clean: bucket("clean"), ablated: bucket("ablated") };
 
-  // ── loss bars (bar over token i+1 = loss predicting it; revealed by playhead) ─
-  const barGeo = new THREE.BoxGeometry(DX * 0.7, 1, 0.7);
-  barGeo.translate(0, 0.5, 0);                       // grow upward from the floor
-  const bars = new THREE.InstancedMesh(barGeo, new THREE.MeshBasicMaterial(), N - 1);
-  bars.frustumCulled = false;
-  scene.add(bars);
+  // ── pegs: hit/miss markers filling the boards behind the playhead ───────────
+  const pegGeo = new THREE.SphereGeometry(0.42, 12, 10);
+  const pegs = new THREE.InstancedMesh(pegGeo, new THREE.MeshBasicMaterial(), N - 1);
+  pegs.frustumCulled = false;
+  scene.add(pegs);
 
-  // ── floating label above the token being read ───────────────────────────────
+  // ── floating label above the cell being read ────────────────────────────────
   const labelCvs = document.createElement("canvas");
   labelCvs.width = 256; labelCvs.height = 72;
   const labelTex = new THREE.CanvasTexture(labelCvs);
@@ -286,20 +319,27 @@ function init(D) {
 
   // ── state + HUD wiring ──────────────────────────────────────────────────────
   const S = { t: 1, play: true, speed: 2, cond: "clean", thresh: 0.10,
-              indOnly: false, hideBos: D.P > 0 };
+              indOnly: false, showSink: true };
   const $ = id => document.getElementById(id);
+  const hits = cond => {
+    let n = 0;
+    for (let i = D.region[0]; i < D.region[1]; i++) n += D[cond].predOk[i];
+    return n;
+  };
+  const regN = D.region[1] - D.region[0];
   $("modelline").textContent = `${D.model} — ${nL} layers × ${nH} heads, ` +
-    `${D.induction.length} induction heads, ${D.SEQ}-token block repeated twice`;
+    `${D.induction.length} induction heads, ${SEQ}-token block repeated twice`;
   $("statline").innerHTML = `2nd-copy loss: clean ${D.stats.indClean} vs ablated ` +
     `${D.stats.indAbl} → <span class="ratio">${D.stats.ratio}× worse</span>`;
+  $("hitline").innerHTML = `copy-2 board: <span class="hits">${hits("clean")}/${regN} hits</span> clean · ` +
+    `<span class="ratio">${hits("ablated")}/${regN}</span> ablated`;
   $("scrub").max = N - 1;
-  if (D.P === 0) $("boslab").style.display = "none";
   $("playbtn").onclick = () => { S.play = !S.play; $("playbtn").textContent = S.play ? "❚❚" : "▶"; };
   $("speed").onchange = e => S.speed = +e.target.value;
   $("scrub").oninput = e => { S.t = +e.target.value; S.play = false; $("playbtn").textContent = "▶"; refresh(); };
   $("thresh").oninput = e => { S.thresh = +e.target.value; $("threshv").textContent = S.thresh.toFixed(2); refresh(); };
   $("indonly").onchange = e => { S.indOnly = e.target.checked; refresh(); };
-  $("hidebos").onchange = e => { S.hideBos = e.target.checked; refresh(); };
+  $("showsink").onchange = e => { S.showSink = e.target.checked; refresh(); };
   $("ablate").onclick = () => {
     S.cond = S.cond === "clean" ? "ablated" : "clean";
     $("ablate").classList.toggle("on", S.cond === "ablated");
@@ -308,35 +348,36 @@ function init(D) {
 
   // ── refresh: everything that depends on (playhead, condition, filters) ──────
   const cInd = new THREE.Color(0x35e0ff), cOther = new THREE.Color(0x51627d);
-  const cLow = new THREE.Color(0x27c46f), cHigh = new THREE.Color(0xe0483a);
+  const cSink = new THREE.Color(0x2c3d5e);
+  const cHit = new THREE.Color(0x27c46f), cMiss = new THREE.Color(0xe0483a);
   const cMute = new THREE.Color(0x39445a);
-  const OTHER_CAP = 90;                              // draw the story, not all 400 lines
+  const OTHER_CAP = 90, SINK_CAP = 48;
   function refresh() {
     const t = S.t, C = D[S.cond];
 
-    // arcs for dest = t: token(src) → head(L,H) → token(dest)
+    // arcs for dest = t: cell(src) → head(L,H) → cell(dest); BOS srcs drain to the well
     const wMin = S.thresh * 255;
     const kept = [];
     for (const [L, H, src, w] of byDest[S.cond][t]) {
       if (w < wMin) continue;
       const isInd = indSet.has(L * 4096 + H);
       if (S.indOnly && !isInd) continue;
-      if (S.hideBos && src < D.P && t >= D.P) continue;       // BOS is an attention sink — noise
+      const toSink = src < P;
+      if (toSink && !S.showSink) continue;
       if (S.cond === "ablated" && isInd) continue;            // dead heads draw nothing
-      kept.push([L, H, src, w, isInd]);
+      kept.push([L, H, src, w, isInd, toSink]);
     }
-    // induction arcs always drawn; background attention capped to the strongest few
-    const other = kept.filter(k => !k[4]).sort((a, b) => b[3] - a[3]).slice(0, OTHER_CAP);
-    const draw = kept.filter(k => k[4]).concat(other);
+    // induction arcs always drawn; background + sink attention capped to the strongest
+    const other = kept.filter(k => !k[4] && !k[5]).sort((a, b) => b[3] - a[3]).slice(0, OTHER_CAP);
+    const sink = kept.filter(k => k[5]).sort((a, b) => b[3] - a[3]).slice(0, SINK_CAP);
+    const draw = kept.filter(k => k[4] && !k[5]).concat(other, sink);
     let v = 0;
-    for (const [L, H, src, w, isInd] of draw) {
+    for (const [L, H, src, w, isInd, toSink] of draw) {
       const curve = new THREE.CatmullRomCurve3([
-        new THREE.Vector3(xPos(src), 0.3, zTok),
-        new THREE.Vector3(0, yPos(L), zPos(H)),
-        new THREE.Vector3(xPos(t), 0.3, zTok)]);
-      // brightness carries the weight; bloom turns the bright cyan ones into beams
-      const col = isInd ? cInd.clone().multiplyScalar(0.30 + 1.05 * (w / 255))
-                        : cOther.clone().multiplyScalar(0.10 + 0.30 * (w / 255));
+        pos3(src, 0.35), new THREE.Vector3(0, yPos(L), zPos(H)), pos3(t, 0.35)]);
+      const col = toSink ? cSink.clone().multiplyScalar(0.10 + 0.25 * (w / 255))
+                : isInd  ? cInd.clone().multiplyScalar(0.30 + 1.05 * (w / 255))
+                         : cOther.clone().multiplyScalar(0.10 + 0.30 * (w / 255));
       let prev = null;
       for (let s = 0; s <= SEGS; s++) {
         const pt = curve.getPoint(s / SEGS);
@@ -366,34 +407,36 @@ function init(D) {
     heads.instanceColor.needsUpdate = true;
     for (const r of rings) r.material.color.setHex(S.cond === "ablated" ? 0xc0392b : 0x35e0ff);
 
-    // loss bars up to the playhead — copy 1 muted (high loss is EXPECTED on random
-    // tokens); copy 2 full color, because that's where the story is
+    // pegs behind the playhead: green = hit, red = miss; copy-1 board muted
+    // (missing on random tokens is EXPECTED — the game is on the copy-2 board)
     for (let i = 0; i < N - 1; i++) {
-      const seen = i <= t - 1, loss = C.loss[i];
-      const hgt = seen ? Math.min(loss / 8, 1) * 3.5 + 0.04 : 0.0001;
-      m4.makeScale(1, hgt, 1).setPosition(xPos(i + 1), 0.1, zBar);
-      bars.setMatrixAt(i, m4);
-      c3.copy(cLow).lerp(cHigh, Math.min(loss / 8, 1));
-      if (i + 1 < D.P + D.SEQ) c3.lerp(cMute, 0.8).multiplyScalar(0.6);
-      bars.setColorAt(i, c3);
+      const seen = i <= t - 1, tokPos = i + 1;
+      const p = pos3(tokPos, 0.42);
+      const sc = !seen ? 0.0001 : tokPos < P + SEQ ? 0.55 : 1;   // small pegs keep board-1 text readable
+      m4.makeScale(sc, sc, sc).setPosition(p.x, p.y, p.z);
+      pegs.setMatrixAt(i, m4);
+      c3.copy(C.predOk[i] ? cHit : cMiss);
+      if (tokPos < P + SEQ) c3.lerp(cMute, 0.8).multiplyScalar(0.6);
+      pegs.setColorAt(i, c3);
     }
-    bars.instanceMatrix.needsUpdate = true;
-    bars.instanceColor.needsUpdate = true;
+    pegs.instanceMatrix.needsUpdate = true;
+    pegs.instanceColor.needsUpdate = true;
 
-    // current-token highlight + pillar + label + HUD
-    for (let i = 0; i < N; i++) tiles.setColorAt(i, c3.setHex(i === t ? 0xeaf1fa : tileCol(i)));
-    tiles.instanceColor.needsUpdate = true;
-    pillar.position.x = xPos(t); pillar.position.z = zTok;
-    label.position.set(xPos(t), -1.1, zBar + 1.6);
+    // playhead pillar + label + HUD
+    const cur = pos3(t, 0);
+    pillar.position.set(cur.x, (topY + 1) / 2, cur.z);
+    label.position.set(cur.x, 3.4, cur.z + 1.2);
     drawLabel(D.tokens[t]);
-    const role = t < D.P ? "prefix" : t < D.P + D.SEQ ? "copy 1" : "copy 2";
-    $("pos").textContent = `${t} / ${N - 1} · ${role}`;
+    const cell = t >= P ? (() => { const j = (t - P) % SEQ;
+      return String.fromCharCode(65 + j % COLS) + (Math.floor(j / COLS) + 1); })() : "sink";
+    const role = t < P ? "prefix" : t < P + SEQ ? "copy 1" : "copy 2";
+    $("pos").textContent = `${cell} · ${role}`;
     $("scrub").value = t;
     if (t >= 1) {
       const i = t - 1, ok = C.predOk[i];
       $("pred").innerHTML = `model predicted <span class="tok">${esc(C.pred[i])}</span> ` +
         `(${(C.predP[i] * 100).toFixed(0)}%) — actual <span class="tok">${esc(D.tokens[t])}</span> ` +
-        `<span class="${ok ? "ok" : "bad"}">${ok ? "✓" : "✗"}</span> · loss ${C.loss[i].toFixed(2)}`;
+        `<span class="${ok ? "ok" : "bad"}">${ok ? "✓ hit" : "✗ miss"}</span> · loss ${C.loss[i].toFixed(2)}`;
     }
   }
   function esc(s) { const d = document.createElement("i"); d.textContent = JSON.stringify(s); return d.innerHTML; }

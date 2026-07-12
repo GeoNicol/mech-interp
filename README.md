@@ -206,13 +206,16 @@ measurement. Switching from argmax to probability changed which methods look saf
 
 ### 11 — Watch it happen (3D replay viewer)
 
-Everything above, but live: a Three.js scene that replays the induction experiment token
-by token. Attention is drawn as light — each beam runs from the token being read, up
-through the head that's attending, back to the token it attends to — so when the playhead
-enters the second copy you *watch* the induction heads (cyan rings) lock onto the first
-copy while the loss floor turns green. Flip the **ABLATE** switch and the beams die, the
-heads go dark, and the same positions light up red. Scrub, pause, orbit, filter — it's
-the whole locate-then-ablate story as something you can hold in your hands.
+Everything above, but live — staged as a game of Battleship. Two boards face each other
+across a wall of attention heads: **copy 1 is the fleet** (the tokens the model has seen,
+on a lettered/numbered grid) and **copy 2 is the targeting board** where the model calls
+its shots. Attention is drawn as light — each beam runs from the cell being read, up
+through the head that's attending, down to the cell it attends to — and every prediction
+drops a peg: green hit, red miss. Clean, gpt2 goes 48/50 on the second board. Flip
+**ABLATE** and the same model goes 0/50 — a board full of red pegs, firing blind. The
+BOS token isn't a board cell at all: it's an off-board **attention-sink well** that heads
+visibly drain into when they have nothing to say (that's what BOS attention really is —
+parking, not reading). Scrub, pause, orbit, filter, switch models.
 
 `capture_3d.py` records one clean + one ablated pass (losses, top-1 predictions,
 attention edges, per-head firing intensity) into a data file; `viewer.html` is fully
