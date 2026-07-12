@@ -204,6 +204,23 @@ measurement. Switching from argmax to probability changed which methods look saf
 
 ![Probability recovery, Llama-3.2-1B](10_unlearning_probability/results/unlearning_17_prob_Llama-3_2-1B.png)
 
+### 11 — Watch it happen (3D replay viewer)
+
+Everything above, but live: a Three.js scene that replays the induction experiment token
+by token. Attention is drawn as light — each beam runs from the token being read, up
+through the head that's attending, back to the token it attends to — so when the playhead
+enters the second copy you *watch* the induction heads (cyan rings) lock onto the first
+copy while the loss floor turns green. Flip the **ABLATE** switch and the beams die, the
+heads go dark, and the same positions light up red. Scrub, pause, orbit, filter — it's
+the whole locate-then-ablate story as something you can hold in your hands.
+
+`capture_3d.py` records one clean + one ablated pass (losses, top-1 predictions,
+attention edges, per-head firing intensity) into a data file; `viewer.html` is fully
+self-contained — double-click it, no server, no build step.
+
+![3D viewer, clean](11_induction_3d/results/viewer_18_clean_gpt2.png)
+![3D viewer, ablated](11_induction_3d/results/viewer_19_ablated_gpt2.png)
+
 ## Reproducing
 
 Requirements: Python 3.12, CUDA GPU (~12 GB; models load in bf16), and:
@@ -228,6 +245,8 @@ python 08_refusal_direction/refusal_direction.py
 python 08_refusal_direction/refusal_heads.py        # refusal-writer heatmap
 python 09_unlearning_refusal/unlearning_refusal.py  # downloads 5 TOFU checkpoints, resumable
 python 10_unlearning_probability/unlearning_probability.py  # probability metric (reuses 09's checkpoints)
+python 11_induction_3d/capture_3d.py                # records the replay data, then just
+                                                    # open 11_induction_3d/viewer.html
 ```
 
 Newer architectures absent from `HookedTransformer`'s registry (e.g. Qwen3.5) load
