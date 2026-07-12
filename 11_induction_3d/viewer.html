@@ -53,6 +53,9 @@
   <h1>The induction circuit, live</h1>
   <div id="modelrow" style="display:none; margin:2px 0 6px">
     model <select id="modelsel"></select>
+    <span id="scenerow" style="display:none">&nbsp;scene <select id="scenesel">
+      <option value="induction" selected>induction</option>
+      <option value="refusal">refusal</option></select></span>
   </div>
   <div id="modelline" class="stats"></div>
   <div id="statline" class="stats"></div>
@@ -102,16 +105,24 @@ dataScript.onerror = () => showErr("couldn't load results/scene_" + tag + ".js\n
 document.head.appendChild(dataScript);
 function showErr(m) { document.getElementById("err").textContent = m; }
 
-// model selector, fed by results/index.js (written by capture_3d.py on every run)
+// model + scene selectors, fed by results/index.js (rewritten by every capture run)
 const idxScript = document.createElement("script");
 idxScript.src = "results/index.js";
 idxScript.onload = () => {
-  const tags = window.SCENE_INDEX || [];
-  if (tags.length < 2) return;                 // nothing to choose between
+  const idx = window.SCENE_INDEX || [];
+  const tags = Array.isArray(idx) ? idx : (idx.induction || []);
   const sel = document.getElementById("modelsel");
-  for (const t of tags) sel.add(new Option(t, t, false, t === tag));
-  sel.onchange = () => location.href = "viewer.html?tag=" + encodeURIComponent(sel.value);
-  document.getElementById("modelrow").style.display = "";
+  if (tags.length >= 2) {
+    for (const t of tags) sel.add(new Option(t, t, false, t === tag));
+    sel.onchange = () => location.href = "viewer.html?tag=" + encodeURIComponent(sel.value);
+    document.getElementById("modelrow").style.display = "";
+  }
+  if (!Array.isArray(idx) && (idx.refusal || []).length) {   // scene switcher
+    const sc = document.getElementById("scenesel");
+    sc.onchange = () => { if (sc.value === "refusal") location.href = "refusal.html"; };
+    document.getElementById("modelrow").style.display = "";
+    document.getElementById("scenerow").style.display = "";
+  }
 };
 document.head.appendChild(idxScript);
 

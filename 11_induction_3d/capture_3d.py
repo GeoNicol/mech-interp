@@ -148,11 +148,11 @@ with open(path, "w", encoding="utf-8") as f:
     f.write(json.dumps(data, separators=(",", ":")))
     f.write(";\n")
 
-# manifest of every captured scene, so viewer.html can offer a model selector
-# (a file:// page can't list a directory — this is its stand-in)
-tags = sorted(p.stem[len("scene_"):] for p in OUT.glob("scene_*.js"))
+# manifest for both scenes' model selectors (file:// pages can't list directories)
+idx = {"induction": sorted(p.stem[len("scene_"):] for p in OUT.glob("scene_*.js")),
+       "refusal": sorted(p.stem[len("refusal_"):] for p in OUT.glob("refusal_*.js"))}
 with open(OUT / "index.js", "w", encoding="utf-8") as f:
-    f.write(f"window.SCENE_INDEX = {json.dumps(tags)};\n")
+    f.write(f"window.SCENE_INDEX = {json.dumps(idx)};\n")
 
 print(f"model: {MODEL}  ({nL} layers x {nH} heads)")
 print(f"induction heads (score>={THRESH}): " +

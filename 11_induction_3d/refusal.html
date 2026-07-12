@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Refusal direction — 3D replay</title>
+<style>
+  html, body { margin:0; height:100%; overflow:hidden; background:#070b12;
+               font:13px/1.45 "Segoe UI", system-ui, sans-serif; color:#cfd8e3; }
+  canvas { display:block; }
+  .panel { position:absolute; background:rgba(10,14,22,.78); border:1px solid #22304a;
+           border-radius:12px; padding:11px 15px; backdrop-filter:blur(6px);
+           box-shadow:0 4px 24px rgba(0,0,0,.35); }
+  #info  { top:14px; left:14px; max-width:360px; }
+  #info h1 { margin:0 0 6px; font:600 19px/1.2 "Cascadia Code", Consolas, "SF Mono", monospace;
+             letter-spacing:.4px; color:#eaf1fa; }
+  #info h1::before { content:"●"; color:#ffb347; font-size:11px; vertical-align:2px; margin-right:7px; }
+  #info .stats { font-size:12px; color:#93a5bf; }
+  #info .bad { color:#ff8272; font-weight:600; } #info .good { color:#4fd58a; font-weight:600; }
+  #controls { right:14px; top:14px; width:236px; }
+  .seg { display:flex; gap:4px; margin:-2px -4px 9px; }
+  .seg div { flex:1; text-align:center; padding:7px 4px; border-radius:8px; cursor:pointer;
+             background:#131c2c; border:1px solid #26314a; font-weight:600; user-select:none; }
+  .seg div.on[data-c=baseline] { background:#15263e; border-color:#35e0ff; color:#9fdcff; }
+  .seg div.on[data-c=ablate]   { background:#3a1512; border-color:#a03325; color:#ffb4a8; }
+  .seg div.on[data-c=add]      { background:#3a2a0e; border-color:#b98a2e; color:#ffd79a; }
+  .legend { margin-top:9px; padding-top:9px; border-top:1px solid #22304a; color:#93a5bf; font-size:12px; }
+  .legend .k { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:6px; }
+  #timeline { left:50%; transform:translateX(-50%); bottom:14px; width:min(760px, 86vw);
+              display:flex; align-items:center; gap:12px; }
+  #timeline input[type=range] { flex:1; accent-color:#ffb347; }
+  #playbtn { width:36px; height:29px; border-radius:7px; border:1px solid #26314a;
+             background:#131c2c; color:#eaf1fa; font-size:13px; cursor:pointer; }
+  #playbtn:hover { border-color:#ffb347; }
+  #pos { min-width:96px; text-align:right; color:#93a5bf; font-variant-numeric:tabular-nums; }
+  #pred { left:50%; transform:translateX(-50%); bottom:68px; text-align:center;
+          font-size:13px; max-width:min(900px, 90vw); }
+  #pred .tok { font-family:Consolas, monospace; background:#131c2c; border:1px solid #26314a;
+               border-radius:5px; padding:1px 7px; }
+  #pred .ok { color:#4fd58a; font-weight:600; } #pred .bad { color:#ff8272; font-weight:600; }
+  #err { position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+         color:#93a5bf; font-size:15px; text-align:center; white-space:pre-line; }
+  select { background:#131c2c; color:#eaf1fa; border:1px solid #26314a; border-radius:6px; padding:2px 4px; }
+</style>
+</head>
+<body>
+<div id="err">loading scene data…</div>
+<div id="info" class="panel" style="display:none">
+  <h1>The refusal direction, live</h1>
+  <div id="modelrow" style="margin:2px 0 6px">
+    model <select id="modelsel"></select>
+    &nbsp;scene <select id="scenesel">
+      <option value="induction">induction</option>
+      <option value="refusal" selected>refusal</option></select>
+  </div>
+  <div id="modelline" class="stats"></div>
+  <div id="rateline" class="stats"></div>
+</div>
+<div id="controls" class="panel" style="display:none">
+  <div class="seg" id="condseg">
+    <div data-c="baseline" class="on">baseline</div>
+    <div data-c="ablate">ablate dir</div>
+    <div data-c="add">add dir</div>
+  </div>
+  <div class="legend">
+    <div><span class="k" style="background:#ffb347"></span>head that writes refusal (ring)</div>
+    <div><span class="k" style="background:#5a8fc0"></span>head that writes anti-refusal</div>
+    <div><span class="k" style="background:#e0483a"></span>REFUSED&nbsp;&nbsp;
+         <span class="k" style="background:#4fd58a"></span>answered</div>
+    <div style="margin-top:3px">thermometer = refusal signal per layer</div>
+    <div>ablate: the signal drains into the well</div>
+    <div style="margin-top:4px">drag = orbit · wheel = zoom · right-drag = pan</div>
+  </div>
+</div>
+<div id="pred" class="panel" style="display:none"></div>
+<div id="timeline" class="panel" style="display:none">
+  <button id="playbtn">❚❚</button>
+  <select id="speed"><option value="0.5">0.5×</option><option value="1" selected>1×</option>
+    <option value="2">2×</option><option value="4">4×</option></select>
+  <input id="scrub" type="range" min="0" max="47" step="1" value="0">
+  <span id="pos"></span>
+</div>
+
+<script src="vendor/three.min.js"></script>
+<script src="vendor/OrbitControls.js"></script>
+<script src="vendor/CopyShader.js"></script>
+<script src="vendor/LuminosityHighPassShader.js"></script>
+<script src="vendor/EffectComposer.js"></script>
+<script src="vendor/RenderPass.js"></script>
+<script src="vendor/ShaderPass.js"></script>
+<script src="vendor/UnrealBloomPass.js"></script>
+<script>
+"use strict";
+const tag = new URLSearchParams(location.search).get("tag") || "Qwen2_5-1_5B-Instruct";
+const dataScript = document.createElement("script");
+dataScript.src = "results/refusal_" + tag + ".js";
+dataScript.onload = () => (window.REFUSAL_DATA && REFUSAL_DATA[tag]) ? init(REFUSAL_DATA[tag])
+  : showErr("refusal_" + tag + ".js loaded but holds no data for tag \"" + tag + "\"");
+dataScript.onerror = () => showErr("couldn't load results/refusal_" + tag + ".js\n" +
+  "run:  python 11_induction_3d/capture_refusal.py");
+document.head.appendChild(dataScript);
+function showErr(m) { document.getElementById("err").textContent = m; }
+
+// model + scene selectors from the shared manifest
+const idxScript = document.createElement("script");
+idxScript.src = "results/index.js";
+idxScript.onload = () => {
+  const idx = window.SCENE_INDEX || {};
+  const sel = document.getElementById("modelsel");
+  for (const t of (idx.refusal || [tag])) sel.add(new Option(t, t, false, t === tag));
+  sel.onchange = () => location.href = "refusal.html?tag=" + encodeURIComponent(sel.value);
+  const sc = document.getElementById("scenesel");
+  sc.onchange = () => { if (sc.value === "induction") location.href = "viewer.html"; };
+};
+document.head.appendChild(idxScript);
+
+function init(D) {
+  document.getElementById("err").style.display = "none";
+  for (const id of ["info", "controls", "pred", "timeline"])
+    document.getElementById(id).style.display = "";
+
+  const nL = D.nL, nH = D.nH;
+  const nHf = D.harmful.length, NP = nHf + D.harmless.length;
+  const PROMPTS = D.harmful.concat(D.harmless);
+
+  // ── stage: two prompt boards flanking the wall of heads ─────────────────────
+  const COLS = 6, ROWS = Math.ceil(nHf / COLS), CS = 2.3;
+  const GAP = 10;
+  const BX = COLS * CS / 2 + GAP / 2;
+  const DY = Math.min(1.4, 26 / nL), Y0 = 3.5;
+  const DZ = Math.min(1.4, 20 / nH);
+  const topY = Y0 + nL * DY;
+  const yPos = L => Y0 + L * DY;
+  const zPos = h => (h - (nH - 1) / 2) * DZ;
+  const SINK = new THREE.Vector3(0, 0.8, -(ROWS * CS / 2 + Math.max(zPos(nH - 1), 0) + 8));
+  const THERMO_Z = zPos(nH - 1) + 4.5;                     // thermometer beside the wall
+  function pos3(i, y) {
+    const onB2 = i >= nHf, j = onB2 ? i - nHf : i;
+    return new THREE.Vector3(
+      (onB2 ? BX : -BX) + (j % COLS - (COLS - 1) / 2) * CS,
+      y,
+      (Math.floor(j / COLS) - (ROWS - 1) / 2) * CS);
+  }
+
+  // ── renderer / composer ─────────────────────────────────────────────────────
+  const scene = new THREE.Scene();
+  scene.fog = new THREE.Fog(0x070b12, 100, 240);
+  const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 500);
+  camera.position.set(0, 32, 42);
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  document.body.appendChild(renderer.domElement);
+  const composer = new THREE.EffectComposer(renderer);
+  composer.addPass(new THREE.RenderPass(scene, camera));
+  composer.addPass(new THREE.UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.9, 0.55, 0.35));
+  const controls = new THREE.OrbitControls(camera, renderer.domElement);
+  controls.target.set(0, 5, 0);
+  controls.enableDamping = true;
+  controls.autoRotate = true;
+  controls.autoRotateSpeed = 0.25;
+  controls.addEventListener("start", () => controls.autoRotate = false);
+  addEventListener("resize", () => {
+    camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth, innerHeight);
+    composer.setSize(innerWidth, innerHeight);
+  });
+  scene.add(new THREE.GridHelper(260, 64, 0x18233a, 0x101827));
+
+  // ── prompt boards: wrapped prompt text painted per card ─────────────────────
+  function boardMesh(prompts, frameHex, coordHex) {
+    const cell = 150, M = 60;
+    const cv = document.createElement("canvas");
+    cv.width = COLS * cell + M; cv.height = ROWS * cell + M;
+    const g = cv.getContext("2d");
+    g.fillStyle = "#0d1420"; g.fillRect(0, 0, cv.width, cv.height);
+    g.strokeStyle = frameHex; g.lineWidth = 4;
+    g.strokeRect(M - 2, M - 2, COLS * cell + 2, ROWS * cell + 2);
+    g.font = "26px 'Cascadia Code', Consolas, monospace"; g.fillStyle = coordHex;
+    g.textAlign = "center"; g.textBaseline = "middle";
+    for (let c = 0; c < COLS; c++) g.fillText(String.fromCharCode(65 + c), M + c * cell + cell / 2, 30);
+    for (let r = 0; r < ROWS; r++) g.fillText(String(r + 1), 28, M + r * cell + cell / 2);
+    g.strokeStyle = "#1c2941"; g.lineWidth = 1.5;
+    for (let c = 1; c < COLS; c++) { g.beginPath(); g.moveTo(M + c * cell, M); g.lineTo(M + c * cell, M + ROWS * cell); g.stroke(); }
+    for (let r = 1; r < ROWS; r++) { g.beginPath(); g.moveTo(M, M + r * cell); g.lineTo(M + COLS * cell, M + r * cell); g.stroke(); }
+    g.font = "16px 'Segoe UI', system-ui, sans-serif"; g.fillStyle = "#7788a5";
+    g.textAlign = "left"; g.textBaseline = "top";
+    prompts.forEach((p, j) => {                              // word-wrap each prompt into its card
+      const x0 = M + (j % COLS) * cell + 10, y0 = M + Math.floor(j / COLS) * cell + 10;
+      let line = "", ln = 0;
+      for (const w of p.split(" ")) {
+        if ((line + " " + w).trim().length > 16 && line) {
+          if (ln < 6) g.fillText(line, x0, y0 + ln * 21, cell - 20);
+          line = w; ln++;
+        } else line = (line + " " + w).trim();
+      }
+      if (ln < 7 && line) g.fillText(line, x0, y0 + ln * 21, cell - 20);
+    });
+    const w = COLS * CS + M / cell * CS, h = ROWS * CS + M / cell * CS;
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h),
+      new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cv) }));
+    m.rotation.x = -Math.PI / 2;
+    m.position.set(-M / cell * CS / 2, 0.01, -M / cell * CS / 2);
+    const holder = new THREE.Group(); holder.add(m);
+    return holder;
+  }
+  const b1 = boardMesh(D.harmful, "#8f2e2e", "#a35d5d"); b1.position.set(-BX, 0, 0); scene.add(b1);
+  const b2 = boardMesh(D.harmless, "#2e8f57", "#5da37e"); b2.position.set(BX, 0, 0); scene.add(b2);
+
+  function textSprite(txt, px, hex, w, h) {
+    const cv = document.createElement("canvas"); cv.width = 512; cv.height = 128;
+    const g = cv.getContext("2d");
+    g.fillStyle = hex; g.font = px + "px 'Segoe UI', system-ui, sans-serif";
+    g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(txt, 256, 64, 492);
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: new THREE.CanvasTexture(cv), transparent: true, depthWrite: false }));
+    sp.scale.set(w, h, 1);
+    return sp;
+  }
+  const cap1 = textSprite("HARMFUL — should refuse", 38, "#a35d5d", 16, 4);
+  cap1.position.set(-BX, 0.4, ROWS * CS / 2 + 3);
+  const cap2 = textSprite("HARMLESS — should answer", 38, "#5da37e", 16, 4);
+  cap2.position.set(BX, 0.4, ROWS * CS / 2 + 3);
+  scene.add(cap1, cap2);
+
+  // the attention-sink well doubles as the drain when the direction is ablated
+  const well = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.9, 0.8, 24),
+    new THREE.MeshBasicMaterial({ color: 0x1a2438 }));
+  well.position.copy(SINK).y = 0.4;
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(1.5, 0.09, 8, 32),
+    new THREE.MeshBasicMaterial({ color: 0x33445f }));
+  rim.rotation.x = Math.PI / 2; rim.position.copy(SINK).y = 0.82;
+  const wlab = textSprite("the well — where the ablated signal goes", 28, "#4f6180", 15, 3.6);
+  wlab.position.copy(SINK).y = 2.6;
+  scene.add(well, rim, wlab);
+
+  // ── the wall of heads; refusal writers get rings (gold = +, steel = −) ──────
+  const heads = new THREE.InstancedMesh(
+    new THREE.SphereGeometry(0.32, 14, 12), new THREE.MeshBasicMaterial(), nL * nH);
+  const m4 = new THREE.Matrix4(), c3 = new THREE.Color();
+  for (let L = 0; L < nL; L++)
+    for (let h = 0; h < nH; h++) {
+      m4.identity().setPosition(0, yPos(L), zPos(h));
+      heads.setMatrixAt(L * nH + h, m4);
+      heads.setColorAt(L * nH + h, c3.setHex(0x1a2436));
+    }
+  scene.add(heads);
+  const writerSet = new Set(D.heads.map(([L, H]) => L * 4096 + H));
+  const ringGeo = new THREE.TorusGeometry(0.54, 0.06, 8, 30);
+  for (const [L, H, v] of D.heads) {
+    const r = new THREE.Mesh(ringGeo,
+      new THREE.MeshBasicMaterial({ color: v > 0 ? 0xffb347 : 0x5a8fc0 }));
+    r.position.set(0, yPos(L), zPos(H));
+    r.scale.setScalar(0.9 + Math.min(Math.abs(v) / Math.abs(D.heads[0][2]), 1) * 0.4);
+    scene.add(r);
+  }
+  for (let L = 0; L < nL; L += 5) {
+    const lab = textSprite("L" + L, 40, "#41597a", 7, 1.8);
+    lab.position.set(0, yPos(L), zPos(nH - 1) + 2.5);
+    scene.add(lab);
+  }
+  const exlab = textSprite("direction from L" + D.layer, 30, "#ffb347", 10, 2.5);
+  exlab.position.set(0, yPos(D.layer), zPos(0) - 3);
+  scene.add(exlab);
+
+  // ── the refusal thermometer: one segment per layer beside the wall ──────────
+  const thermo = new THREE.InstancedMesh(
+    new THREE.BoxGeometry(1, DY * 0.72, 0.6), new THREE.MeshBasicMaterial(), nL);
+  thermo.frustumCulled = false;
+  scene.add(thermo);
+  const tlab = textSprite("refusal signal", 34, "#ffb347", 12, 3);
+  tlab.position.set(0, topY + 1.6, THERMO_Z);
+  scene.add(tlab);
+  // scale reference: the strongest baseline projection anywhere
+  let projMax = 1;
+  for (const c of ["baseline"])
+    for (const row of D.conds[c].proj) for (const v of row) projMax = Math.max(projMax, Math.abs(v));
+
+  // ── beams card→writer-heads, plus drain streams head→well under ablation ────
+  const SEGS = 14, MAXB = (D.heads.length * 2 + 8) * SEGS * 2;
+  const arcPos = new Float32Array(MAXB * 3), arcCol = new Float32Array(MAXB * 3);
+  const arcGeo = new THREE.BufferGeometry();
+  arcGeo.setAttribute("position", new THREE.BufferAttribute(arcPos, 3).setUsage(THREE.DynamicDrawUsage));
+  arcGeo.setAttribute("color", new THREE.BufferAttribute(arcCol, 3).setUsage(THREE.DynamicDrawUsage));
+  const arcs = new THREE.LineSegments(arcGeo, new THREE.LineBasicMaterial({
+    vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+  arcs.frustumCulled = false;
+  scene.add(arcs);
+
+  // ── verdict pegs on every card ──────────────────────────────────────────────
+  const pegs = new THREE.InstancedMesh(
+    new THREE.SphereGeometry(0.4, 12, 10), new THREE.MeshBasicMaterial(), NP);
+  pegs.frustumCulled = false;
+  scene.add(pegs);
+
+  const pillar = new THREE.Mesh(new THREE.BoxGeometry(0.6, topY + 1, 0.6),
+    new THREE.MeshBasicMaterial({ color: 0x24405e, transparent: true, opacity: 0.5,
+      blending: THREE.AdditiveBlending, depthWrite: false }));
+  scene.add(pillar);
+
+  // ── state + HUD ─────────────────────────────────────────────────────────────
+  const S = { t: 0, play: true, speed: 1, cond: "baseline" };
+  const $ = id => document.getElementById(id);
+  $("modelline").textContent = `${D.model} — ${nL} layers × ${nH} heads, ` +
+    `refusal direction from layer ${D.layer} (coeff ${D.coeff})`;
+  const pct = v => Math.round(v * 100) + "%";
+  const renderRates = () => {
+    const r = D.rates, c = S.cond;
+    $("rateline").innerHTML =
+      `refusal rate — harmful: <span class="${r.harmful[c] > 0.5 ? "good" : "bad"}">${pct(r.harmful[c])}</span>` +
+      ` · harmless: <span class="${r.harmless[c] > 0.5 ? "bad" : "good"}">${pct(r.harmless[c])}</span>` +
+      ` &nbsp;(${c})`;
+  };
+  $("scrub").max = NP - 1;
+  $("playbtn").onclick = () => { S.play = !S.play; $("playbtn").textContent = S.play ? "❚❚" : "▶"; };
+  $("speed").onchange = e => S.speed = +e.target.value;
+  $("scrub").oninput = e => { S.t = +e.target.value; S.play = false; $("playbtn").textContent = "▶"; refresh(); };
+  for (const el of $("condseg").children)
+    el.onclick = () => {
+      S.cond = el.dataset.c;
+      for (const x of $("condseg").children) x.classList.toggle("on", x === el);
+      refresh();
+    };
+
+  // ── refresh ─────────────────────────────────────────────────────────────────
+  const cGold = new THREE.Color(0xffb347), cSteel = new THREE.Color(0x5a8fc0);
+  const cRef = new THREE.Color(0xe0483a), cAns = new THREE.Color(0x4fd58a);
+  const cDrain = new THREE.Color(0x8f3a2e);
+  function refresh() {
+    const t = S.t, C = D.conds[S.cond];
+    const hw = D.headw[t];
+
+    // beams: current card → each ringed head (glow ∝ that prompt's head write)
+    let v = 0;
+    const cardTop = pos3(t, 0.35);
+    for (const [L, H, sc] of D.heads) {
+      const w = hw[L * nH + H] / 255;
+      const headP = new THREE.Vector3(0, yPos(L), zPos(H));
+      const col = (sc > 0 ? cGold : cSteel).clone().multiplyScalar(0.15 + 1.0 * w);
+      const curve = new THREE.CatmullRomCurve3([cardTop.clone(),
+        cardTop.clone().lerp(headP, 0.5).add(new THREE.Vector3(0, 3, 0)), headP]);
+      let prev = null;
+      for (let s = 0; s <= SEGS; s++) {
+        const pt = curve.getPoint(s / SEGS);
+        if (prev) { arcPos.set([prev.x, prev.y, prev.z, pt.x, pt.y, pt.z], v * 3);
+                    arcCol.set([col.r, col.g, col.b, col.r, col.g, col.b], v * 3); v += 2; }
+        prev = pt;
+      }
+      if (S.cond === "ablate") {                    // the written signal drains into the well
+        const drain = new THREE.CatmullRomCurve3([headP.clone(),
+          headP.clone().lerp(SINK, 0.5).setY(headP.y * 0.4), SINK.clone().setY(1)]);
+        const dcol = cDrain.clone().multiplyScalar(0.1 + 0.5 * w);
+        prev = null;
+        for (let s = 0; s <= SEGS; s++) {
+          const pt = drain.getPoint(s / SEGS);
+          if (prev) { arcPos.set([prev.x, prev.y, prev.z, pt.x, pt.y, pt.z], v * 3);
+                      arcCol.set([dcol.r, dcol.g, dcol.b, dcol.r, dcol.g, dcol.b], v * 3); v += 2; }
+          prev = pt;
+        }
+      }
+    }
+    arcGeo.setDrawRange(0, v);
+    arcGeo.attributes.position.needsUpdate = arcGeo.attributes.color.needsUpdate = true;
+
+    // head glow = this prompt's per-head write magnitude
+    for (let L = 0; L < nL; L++)
+      for (let h = 0; h < nH; h++) {
+        const w = hw[L * nH + h] / 255;
+        const ringed = writerSet.has(L * 4096 + h);
+        c3.copy(ringed ? cGold : new THREE.Color(0x51627d)).multiplyScalar(0.08 + 1.4 * w * w);
+        heads.setColorAt(L * nH + h, c3);
+      }
+    heads.instanceColor.needsUpdate = true;
+
+    // thermometer: per-layer projection onto the direction (ablate ⇒ flat)
+    for (let L = 0; L < nL; L++) {
+      const p = C.proj[t][L] / projMax;                    // add-condition rails past 1 — clamp
+      const mag = Math.min(Math.abs(p), 1);
+      m4.makeScale(0.25 + 2.2 * mag, 1, 1).setPosition(0, yPos(L), THERMO_Z);
+      thermo.setMatrixAt(L, m4);
+      if (p >= 0) c3.copy(cGold).lerp(cRef, mag).multiplyScalar(0.15 + 1.1 * mag);
+      else c3.copy(cSteel).multiplyScalar(0.15 + 0.5 * mag);
+      thermo.setColorAt(L, c3);
+    }
+    thermo.instanceMatrix.needsUpdate = true;
+    thermo.instanceColor.needsUpdate = true;
+
+    // verdict pegs, all cards, current condition
+    for (let i = 0; i < NP; i++) {
+      const p = pos3(i, 0.42);
+      m4.makeScale(i === t ? 1.25 : 0.8, i === t ? 1.25 : 0.8, i === t ? 1.25 : 0.8)
+        .setPosition(p.x, p.y, p.z);
+      pegs.setMatrixAt(i, m4);
+      pegs.setColorAt(i, c3.copy(C.refused[i] ? cRef : cAns));
+    }
+    pegs.instanceMatrix.needsUpdate = true;
+    pegs.instanceColor.needsUpdate = true;
+
+    // pillar + HUD
+    const cur = pos3(t, 0);
+    pillar.position.set(cur.x, (topY + 1) / 2, cur.z);
+    const j = t % nHf;
+    $("pos").textContent = String.fromCharCode(65 + j % COLS) + (Math.floor(j / COLS) + 1) +
+      " · " + (t < nHf ? "harmful" : "harmless");
+    $("scrub").value = t;
+    const verdict = C.refused[t];
+    $("pred").innerHTML = `<span class="tok">${esc(PROMPTS[t])}</span> → ` +
+      `<span class="tok">${esc(C.text[t])}</span> ` +
+      `<span class="${verdict ? (t < nHf ? "ok" : "bad") : (t < nHf ? "bad" : "ok")}">` +
+      `${verdict ? "REFUSED" : "ANSWERED"}</span>`;
+    renderRates();
+  }
+  function esc(s) { const d = document.createElement("i"); d.textContent = s; return d.innerHTML; }
+
+  // ── playback ────────────────────────────────────────────────────────────────
+  let acc = 0, last = performance.now();
+  function tick(now) {
+    requestAnimationFrame(tick);
+    const dt = (now - last) / 1000; last = now;
+    if (S.play) {
+      acc += dt * S.speed;                          // base pace: 1 card/sec at 1×
+      if (acc >= 1) {
+        S.t += Math.floor(acc); acc %= 1;
+        if (S.t > NP - 1) S.t = 0;
+        refresh();
+      }
+    }
+    controls.update();
+    composer.render();
+  }
+  refresh();
+  requestAnimationFrame(tick);
+  window.__viewer = { camera, controls, S, refresh };
+}
+</script>
+</body>
+</html>

@@ -217,6 +217,17 @@ BOS token isn't a board cell at all: it's an off-board **attention-sink well** t
 visibly drain into when they have nothing to say (that's what BOS attention really is —
 parking, not reading). Scrub, pause, orbit, filter, switch models.
 
+The same stage hosts a second scene (`refusal.html`, from experiment 08): the boards
+become 24 harmful vs 24 harmless prompts, the ringed heads are the ones that *write* the
+refusal direction, and a per-layer **refusal thermometer** rises beside the wall as the
+signal builds. Three conditions replace the ablate toggle — baseline, ablate direction
+(watch the thermometer flatten and the written signal drain into the well while harmful
+prompts flip from REFUSED to ANSWERED), and add direction (harmless prompts start
+refusing). Every card shows the model's actual generated answer.
+
+![Refusal scene, baseline](11_induction_3d/results/refusal_20_baseline_Qwen2_5-1_5B-Instruct.png)
+![Refusal scene, direction ablated](11_induction_3d/results/refusal_21_ablate_Qwen2_5-1_5B-Instruct.png)
+
 `capture_3d.py` records one clean + one ablated pass (losses, top-1 predictions,
 attention edges, per-head firing intensity) into a data file; `viewer.html` is fully
 self-contained — double-click it, no server, no build step. A model selector in the
@@ -252,6 +263,7 @@ python 09_unlearning_refusal/unlearning_refusal.py  # downloads 5 TOFU checkpoin
 python 10_unlearning_probability/unlearning_probability.py  # probability metric (reuses 09's checkpoints)
 python 11_induction_3d/capture_3d.py                # records the replay data, then just
                                                     # open 11_induction_3d/viewer.html
+python 11_induction_3d/capture_refusal.py           # refusal scene → refusal.html
 ```
 
 Newer architectures absent from `HookedTransformer`'s registry (e.g. Qwen3.5) load
