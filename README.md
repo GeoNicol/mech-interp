@@ -216,7 +216,9 @@ the whole locate-then-ablate story as something you can hold in your hands.
 
 `capture_3d.py` records one clean + one ablated pass (losses, top-1 predictions,
 attention edges, per-head firing intensity) into a data file; `viewer.html` is fully
-self-contained — double-click it, no server, no build step.
+self-contained — double-click it, no server, no build step. A model selector in the
+corner switches between every captured scene (gpt2, Pythia-1.4B, Qwen3-1.7B, and the
+hybrid Qwen3.5-2B, whose pattern-less linear-attention layers render as flat slabs).
 
 ![3D viewer, clean](11_induction_3d/results/viewer_18_clean_gpt2.png)
 ![3D viewer, ablated](11_induction_3d/results/viewer_19_ablated_gpt2.png)

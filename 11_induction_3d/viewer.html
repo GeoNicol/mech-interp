@@ -50,6 +50,9 @@
 <div id="err">loading scene data…</div>
 <div id="info" class="panel" style="display:none">
   <h1>The induction circuit, live</h1>
+  <div id="modelrow" style="display:none; margin:2px 0 6px">
+    model <select id="modelsel"></select>
+  </div>
   <div id="modelline" class="stats"></div>
   <div id="statline" class="stats"></div>
 </div>
@@ -96,6 +99,19 @@ dataScript.onerror = () => showErr("couldn't load results/scene_" + tag + ".js\n
   "run:  python 11_induction_3d/capture_3d.py" + (tag === "gpt2" ? "" : "  <model for " + tag + ">"));
 document.head.appendChild(dataScript);
 function showErr(m) { document.getElementById("err").textContent = m; }
+
+// model selector, fed by results/index.js (written by capture_3d.py on every run)
+const idxScript = document.createElement("script");
+idxScript.src = "results/index.js";
+idxScript.onload = () => {
+  const tags = window.SCENE_INDEX || [];
+  if (tags.length < 2) return;                 // nothing to choose between
+  const sel = document.getElementById("modelsel");
+  for (const t of tags) sel.add(new Option(t, t, false, t === tag));
+  sel.onchange = () => location.href = "viewer.html?tag=" + encodeURIComponent(sel.value);
+  document.getElementById("modelrow").style.display = "";
+};
+document.head.appendChild(idxScript);
 
 function init(D) {
   document.getElementById("err").style.display = "none";

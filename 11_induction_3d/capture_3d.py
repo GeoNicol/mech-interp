@@ -148,6 +148,12 @@ with open(path, "w", encoding="utf-8") as f:
     f.write(json.dumps(data, separators=(",", ":")))
     f.write(";\n")
 
+# manifest of every captured scene, so viewer.html can offer a model selector
+# (a file:// page can't list a directory — this is its stand-in)
+tags = sorted(p.stem[len("scene_"):] for p in OUT.glob("scene_*.js"))
+with open(OUT / "index.js", "w", encoding="utf-8") as f:
+    f.write(f"window.SCENE_INDEX = {json.dumps(tags)};\n")
+
 print(f"model: {MODEL}  ({nL} layers x {nH} heads)")
 print(f"induction heads (score>={THRESH}): " +
       ", ".join(f"L{L}H{H}={s:.2f}" for L, H, s in top))
