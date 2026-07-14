@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Induction circuit — emergence</title>
+<style>
+  html, body { margin:0; height:100%; overflow:hidden; background:#070b12;
+               font:13px/1.45 "Segoe UI", system-ui, sans-serif; color:#cfd8e3; }
+  canvas { display:block; }
+  .panel { position:absolute; background:rgba(10,14,22,.78); border:1px solid #22304a;
+           border-radius:12px; padding:11px 15px; backdrop-filter:blur(6px);
+           box-shadow:0 4px 24px rgba(0,0,0,.35); }
+  #info  { top:14px; left:14px; max-width:340px; }
+  #info h1 { margin:0 0 6px; font:600 19px/1.2 "Cascadia Code", Consolas, "SF Mono", monospace;
+             letter-spacing:.4px; color:#eaf1fa; }
+  #info h1::before { content:"●"; color:#ffb347; font-size:11px; vertical-align:2px; margin-right:7px; }
+  #info .stats { font-size:12px; color:#93a5bf; }
+  #info .score { color:#ff8272; font-weight:600; }
+  #info .hits { color:#4fd58a; font-weight:600; }
+  #controls { right:14px; top:14px; width:238px; }
+  #controls label { display:flex; align-items:center; gap:8px; margin:7px 0; cursor:pointer; }
+  #controls input[type=range] { flex:1; accent-color:#ffb347; }
+  .train { padding:9px 10px; margin:-3px -5px 9px; border-radius:9px;
+           background:#131c2c; border:1px solid #26314a; }
+  .train .row { display:flex; align-items:center; gap:8px; }
+  .train button { width:34px; height:26px; border-radius:7px; border:1px solid #26314a;
+                  background:#0d1420; color:#eaf1fa; font-size:12px; cursor:pointer; }
+  .train button:hover { border-color:#ffb347; }
+  .train input[type=range] { flex:1; accent-color:#ffb347; }
+  .train .steplab { margin-top:5px; font-size:12px; color:#ffcf8a; font-weight:600;
+                    font-variant-numeric:tabular-nums; }
+  #chart { width:100%; height:96px; margin-top:7px; cursor:pointer; display:block;
+           background:#0d1420; border:1px solid #1c2941; border-radius:6px; }
+  .legend { margin-top:9px; padding-top:9px; border-top:1px solid #22304a; color:#93a5bf; font-size:12px; }
+  .legend .k { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:6px; }
+  #timeline { left:50%; transform:translateX(-50%); bottom:14px; width:min(760px, 86vw);
+              display:flex; align-items:center; gap:12px; }
+  #timeline input[type=range] { flex:1; accent-color:#35e0ff; }
+  #playbtn { width:36px; height:29px; border-radius:7px; border:1px solid #26314a;
+             background:#131c2c; color:#eaf1fa; font-size:13px; cursor:pointer; }
+  #playbtn:hover { border-color:#35e0ff; }
+  #pos { min-width:96px; text-align:right; color:#93a5bf; font-variant-numeric:tabular-nums; }
+  #pred { left:50%; transform:translateX(-50%); bottom:68px; text-align:center;
+          font-size:14px; white-space:nowrap; }
+  #pred .tok { font-family:Consolas, monospace; background:#131c2c; border:1px solid #26314a;
+               border-radius:5px; padding:1px 7px; }
+  #pred .ok { color:#4fd58a; } #pred .bad { color:#ff8272; }
+  #err { position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+         color:#93a5bf; font-size:15px; text-align:center; white-space:pre-line; }
+  select { background:#131c2c; color:#eaf1fa; border:1px solid #26314a; border-radius:6px; padding:2px 4px; }
+</style>
+</head>
+<body>
+<div id="err">loading scene data…</div>
+<div id="info" class="panel" style="display:none">
+  <h1>The circuit being born</h1>
+  <div id="modelrow" style="margin:2px 0 6px">
+    model <select id="modelsel"></select>
+    &nbsp;scene <select id="scenesel">
+      <option value="induction">induction</option>
+      <option value="refusal">refusal</option>
+      <option value="unlearning">unlearning</option>
+      <option value="emergence" selected>emergence</option></select>
+  </div>
+  <div id="modelline" class="stats"></div>
+  <div id="statline" class="stats"></div>
+  <div id="hitline" class="stats"></div>
+</div>
+<div id="controls" class="panel" style="display:none">
+  <div class="train">
+    <div class="row">
+      <button id="trainbtn">▶</button>
+      <input id="trainscrub" type="range" min="0" max="13" step="1" value="0">
+    </div>
+    <div class="steplab" id="steplab"></div>
+    <canvas id="chart" width="416" height="192"></canvas>
+  </div>
+  <label>attention ≥ <input id="thresh" type="range" min="0.03" max="0.6" step="0.01" value="0.10">
+    <span id="threshv">0.10</span></label>
+  <label><input id="indonly" type="checkbox"> destined heads only</label>
+  <label id="boslab"><input id="showsink" type="checkbox" checked> attention sink (BOS well)</label>
+  <div class="legend">
+    <div><span class="k" style="background:#35e0ff"></span>destined induction head (ring ignites at 0.3)</div>
+    <div><span class="k" style="background:#8899aa"></span>other heads (colour = induction score)</div>
+    <div><span class="k" style="background:#4fd58a"></span>hit — predicted right&nbsp;&nbsp;
+         <span class="k" style="background:#e0483a"></span>miss</div>
+    <div style="margin-top:4px">drag = orbit · wheel = zoom · right-drag = pan</div>
+  </div>
+</div>
+<div id="pred" class="panel" style="display:none"></div>
+<div id="timeline" class="panel" style="display:none">
+  <button id="playbtn">❚❚</button>
+  <select id="speed"><option value="1">1×</option><option value="2" selected>2×</option>
+    <option value="5">5×</option><option value="10">10×</option><option value="0.5">0.5×</option></select>
+  <input id="scrub" type="range" min="1" max="100" step="1" value="1">
+  <span id="pos"></span>
+</div>
+
+<script src="vendor/three.min.js"></script>
+<script src="vendor/OrbitControls.js"></script>
+<script src="vendor/CopyShader.js"></script>
+<script src="vendor/LuminosityHighPassShader.js"></script>
+<script src="vendor/EffectComposer.js"></script>
+<script src="vendor/RenderPass.js"></script>
+<script src="vendor/ShaderPass.js"></script>
+<script src="vendor/UnrealBloomPass.js"></script>
+<script>
+"use strict";
+// ── data loading: results/emergence_{tag}.js sets window.EMERGE_DATA[tag] ────
+const tag = new URLSearchParams(location.search).get("tag") || "pythia-160m";
+const dataScript = document.createElement("script");
+dataScript.src = "results/emergence_" + tag + ".js";
+dataScript.onload = () => (window.EMERGE_DATA && EMERGE_DATA[tag]) ? init(EMERGE_DATA[tag])
+  : showErr("emergence_" + tag + ".js loaded but holds no data for tag \"" + tag + "\"");
+dataScript.onerror = () => showErr("couldn't load results/emergence_" + tag + ".js\n" +
+  "run:  python 11_induction_3d/capture_emergence.py");
+document.head.appendChild(dataScript);
+function showErr(m) { document.getElementById("err").textContent = m; }
+
+// model + scene selectors from the shared manifest
+const idxScript = document.createElement("script");
+idxScript.src = "results/index.js";
+idxScript.onload = () => {
+  const idx = window.SCENE_INDEX || {};
+  const sel = document.getElementById("modelsel");
+  for (const t of (idx.emergence || [tag])) sel.add(new Option(t, t, false, t === tag));
+  sel.onchange = () => location.href = "emergence.html?tag=" + encodeURIComponent(sel.value);
+  const sc = document.getElementById("scenesel");
+  sc.onchange = () => { if (sc.value === "induction") location.href = "viewer.html";
+                        else if (sc.value === "refusal") location.href = "refusal.html";
+                        else if (sc.value === "unlearning") location.href = "unlearning.html"; };
+};
+document.head.appendChild(idxScript);
+
+function init(D) {
+  document.getElementById("err").style.display = "none";
+  for (const id of ["info", "controls", "pred", "timeline"])
+    document.getElementById(id).style.display = "";
+
+  const N = D.tokens.length, nL = D.nL, nH = D.nH, P = D.P, SEQ = D.SEQ;
+  const nCk = D.ckpts.length, THRESH = 0.3;
+  const indSet = new Set(D.induction.map(([L, H]) => L * 4096 + H));
+
+  // ── battleship layout: two boards flanking a wall of heads, BOS well behind ─
+  const COLS = 10, ROWS = Math.ceil(SEQ / COLS), CS = 2.0;      // cell size
+  const GAP = 10;                                               // water between the boards
+  const BX = COLS * CS / 2 + GAP / 2;                           // board-center |x|
+  const DY = Math.min(1.4, 26 / nL), Y0 = 3.5;                  // heads wall vertical pitch
+  const DZ = Math.min(1.4, 20 / nH);
+  const topY = Y0 + nL * DY;
+  const yPos = L => Y0 + L * DY;
+  const zPos = h => (h - (nH - 1) / 2) * DZ;
+  const SINK = new THREE.Vector3(0, 0.8, -(ROWS * CS / 2 + Math.max(zPos(nH - 1), 0) + 8));
+  // world position of token i (BOS lives in the sink well, off the boards)
+  function pos3(i, y) {
+    if (i < P) return new THREE.Vector3(SINK.x, y + SINK.y, SINK.z);
+    const k = i - P, onB2 = k >= SEQ, j = onB2 ? k - SEQ : k;
+    return new THREE.Vector3(
+      (onB2 ? BX : -BX) + (j % COLS - (COLS - 1) / 2) * CS,
+      y,
+      (Math.floor(j / COLS) - (ROWS - 1) / 2) * CS);
+  }
+
+  // ── renderer / composer (bloom turns the additive lines into light) ─────────
+  const scene = new THREE.Scene();
+  scene.fog = new THREE.Fog(0x070b12, 100, 240);
+  const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 500);
+  camera.position.set(0, 34, 44);
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  document.body.appendChild(renderer.domElement);
+  const composer = new THREE.EffectComposer(renderer);
+  composer.addPass(new THREE.RenderPass(scene, camera));
+  const bloom = new THREE.UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.9, 0.55, 0.35);
+  composer.addPass(bloom);
+  const controls = new THREE.OrbitControls(camera, renderer.domElement);
+  controls.target.set(0, 5, 0);
+  controls.enableDamping = true;
+  controls.autoRotate = true;                   // slow reveal until the user grabs the scene
+  controls.autoRotateSpeed = 0.25;
+  controls.addEventListener("start", () => controls.autoRotate = false);
+  addEventListener("resize", () => {
+    camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth, innerHeight);
+    composer.setSize(innerWidth, innerHeight);
+  });
+
+  // ── atmosphere: grid floor for depth ────────────────────────────────────────
+  const grid = new THREE.GridHelper(260, 64, 0x18233a, 0x101827);
+  grid.position.y = -0.04;
+  scene.add(grid);
+
+  // ── the two game boards: one canvas texture each, grid + coords + tokens ────
+  function boardMesh(frameHex, coordHex) {
+    const cv = document.createElement("canvas");
+    cv.width = COLS * 100 + 60; cv.height = ROWS * 100 + 60;
+    const g = cv.getContext("2d");
+    g.fillStyle = "#0d1420"; g.fillRect(0, 0, cv.width, cv.height);
+    g.strokeStyle = frameHex; g.lineWidth = 4;
+    g.strokeRect(58, 58, COLS * 100 + 2, ROWS * 100 + 2);
+    g.font = "26px 'Cascadia Code', Consolas, monospace"; g.fillStyle = coordHex;
+    g.textAlign = "center"; g.textBaseline = "middle";
+    for (let c = 0; c < COLS; c++) g.fillText(String.fromCharCode(65 + c), 60 + c * 100 + 50, 32);
+    for (let r = 0; r < ROWS; r++) g.fillText(String(r + 1), 30, 60 + r * 100 + 50);
+    g.strokeStyle = "#1c2941"; g.lineWidth = 1.5;
+    for (let c = 1; c < COLS; c++) { g.beginPath(); g.moveTo(60 + c * 100, 60); g.lineTo(60 + c * 100, 60 + ROWS * 100); g.stroke(); }
+    for (let r = 1; r < ROWS; r++) { g.beginPath(); g.moveTo(60, 60 + r * 100); g.lineTo(60 + COLS * 100, 60 + r * 100); g.stroke(); }
+    g.font = "20px 'Cascadia Code', Consolas, monospace"; g.fillStyle = "#7788a5";
+    for (let j = 0; j < SEQ; j++) {           // both boards hold the SAME random block
+      const txt = JSON.stringify(D.tokens[P + j]).slice(1, -1).slice(0, 7);
+      g.fillText(txt, 60 + (j % COLS) * 100 + 50, 60 + Math.floor(j / COLS) * 100 + 50, 92);
+    }
+    const w = COLS * CS + 60 / 100 * CS, h = ROWS * CS + 60 / 100 * CS;
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h),
+      new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cv) }));
+    m.rotation.x = -Math.PI / 2;
+    // canvas margin (coords row/col) sits top-left: shift so CELLS align with pos3()
+    m.position.set(-60 / 100 * CS / 2, 0.01, -60 / 100 * CS / 2);
+    const holder = new THREE.Group(); holder.add(m);
+    return holder;
+  }
+  const b1 = boardMesh("#2e5a8f", "#5d7ba3"); b1.position.set(-BX, 0, 0); scene.add(b1);
+  const b2 = boardMesh("#5a4390", "#8a76b8"); b2.position.set(BX, 0, 0); scene.add(b2);
+
+  function textSprite(txt, px, hex, w, h) {
+    const cv = document.createElement("canvas"); cv.width = 512; cv.height = 128;
+    const g = cv.getContext("2d");
+    g.fillStyle = hex; g.font = px + "px 'Segoe UI', system-ui, sans-serif";
+    g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(txt, 256, 64, 492);
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: new THREE.CanvasTexture(cv), transparent: true, depthWrite: false }));
+    sp.scale.set(w, h, 1);
+    return sp;
+  }
+  const cap1 = textSprite("COPY 1 — the fleet", 40, "#5d7ba3", 16, 4);
+  cap1.position.set(-BX, 0.4, ROWS * CS / 2 + 3);
+  const cap2 = textSprite("COPY 2 — call your shots", 40, "#8a76b8", 16, 4);
+  cap2.position.set(BX, 0.4, ROWS * CS / 2 + 3);
+  scene.add(cap1, cap2);
+
+  // the BOS well: where heads park attention they don't need (an attention sink)
+  if (P > 0) {
+    const well = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.9, 0.8, 24),
+      new THREE.MeshBasicMaterial({ color: 0x1a2438 }));
+    well.position.copy(SINK).y = 0.4;
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(1.5, 0.09, 8, 32),
+      new THREE.MeshBasicMaterial({ color: 0x33445f }));
+    rim.rotation.x = Math.PI / 2; rim.position.copy(SINK).y = 0.82;
+    const wlab = textSprite("BOS — attention sink", 30, "#4f6180", 13, 3.2);
+    wlab.position.copy(SINK).y = 2.6;
+    scene.add(well, rim, wlab);
+  } else document.getElementById("boslab").style.display = "none";
+
+  // ── the wall of heads between the boards ────────────────────────────────────
+  const headGeo = new THREE.SphereGeometry(0.32, 14, 12);
+  const heads = new THREE.InstancedMesh(headGeo, new THREE.MeshBasicMaterial(), nL * nH);
+  const m4 = new THREE.Matrix4(), c3 = new THREE.Color();
+  for (let L = 0; L < nL; L++)
+    for (let h = 0; h < nH; h++) {
+      m4.makeScale(1, 1, 1).setPosition(0, yPos(L), zPos(h));
+      heads.setMatrixAt(L * nH + h, m4);
+      heads.setColorAt(L * nH + h, c3.setHex(0x1a2436));
+    }
+  scene.add(heads);
+  // rings mark the DESTINED induction heads (above threshold at the END of training):
+  // they start dim, and ignite the moment that head's score crosses THRESH
+  const rings = [];
+  const ringGeo = new THREE.TorusGeometry(0.54, 0.06, 8, 30);
+  for (const [L, H] of D.induction) {
+    const r = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color: 0x2c3a55 }));
+    r.position.set(0, yPos(L), zPos(H));
+    r.userData = { L, H };
+    rings.push(r); scene.add(r);
+  }
+  for (let L = 0; L < nL; L += 5) {
+    const lab = textSprite("L" + L, 40, "#41597a", 7, 1.8);
+    lab.position.set(0, yPos(L), zPos(nH - 1) + 2.5);
+    scene.add(lab);
+  }
+
+  // playhead pillar: a faint column of light over the cell being read
+  const pillar = new THREE.Mesh(new THREE.BoxGeometry(0.6, topY + 1, 0.6),
+    new THREE.MeshBasicMaterial({ color: 0x24405e, transparent: true, opacity: 0.5,
+      blending: THREE.AdditiveBlending, depthWrite: false }));
+  scene.add(pillar);
+
+  // ── attention arcs: one LineSegments rebuilt whenever the playhead moves ────
+  const SEGS = 14;
+  const maxEdges = nL * nH * 3 + 64;
+  const arcPos = new Float32Array(maxEdges * SEGS * 2 * 3);
+  const arcCol = new Float32Array(maxEdges * SEGS * 2 * 3);
+  const arcGeo = new THREE.BufferGeometry();
+  arcGeo.setAttribute("position", new THREE.BufferAttribute(arcPos, 3).setUsage(THREE.DynamicDrawUsage));
+  arcGeo.setAttribute("color", new THREE.BufferAttribute(arcCol, 3).setUsage(THREE.DynamicDrawUsage));
+  const arcs = new THREE.LineSegments(arcGeo, new THREE.LineBasicMaterial({
+    vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+  arcs.frustumCulled = false;
+  scene.add(arcs);
+
+  // edges bucketed by destination, built lazily per checkpoint
+  const bucketCache = new Array(nCk);
+  function byDest(k) {
+    if (!bucketCache[k]) {
+      const e = D.ckpts[k].edges, out = Array.from({ length: N }, () => []);
+      for (let i = 0; i < e.L.length; i++) out[e.D[i]].push([e.L[i], e.H[i], e.S[i], e.W[i]]);
+      bucketCache[k] = out;
+    }
+    return bucketCache[k];
+  }
+
+  // ── pegs: hit/miss markers filling the boards behind the playhead ───────────
+  const pegGeo = new THREE.SphereGeometry(0.42, 12, 10);
+  const pegs = new THREE.InstancedMesh(pegGeo, new THREE.MeshBasicMaterial(), N - 1);
+  pegs.frustumCulled = false;
+  scene.add(pegs);
+
+  // ── floating label above the cell being read ────────────────────────────────
+  const labelCvs = document.createElement("canvas");
+  labelCvs.width = 256; labelCvs.height = 72;
+  const labelTex = new THREE.CanvasTexture(labelCvs);
+  const label = new THREE.Sprite(new THREE.SpriteMaterial({ map: labelTex, depthTest: false }));
+  label.scale.set(6.4, 1.8, 1);
+  scene.add(label);
+  function drawLabel(txt) {
+    const g = labelCvs.getContext("2d");
+    g.clearRect(0, 0, 256, 72);
+    g.fillStyle = "rgba(10,14,22,.85)"; g.fillRect(0, 0, 256, 72);
+    g.strokeStyle = "#22304a"; g.strokeRect(0, 0, 256, 72);
+    g.fillStyle = "#eaf1fa"; g.font = "26px Consolas, monospace";
+    g.textAlign = "center"; g.textBaseline = "middle";
+    g.fillText(JSON.stringify(txt).slice(0, 18), 128, 36);
+    labelTex.needsUpdate = true;
+  }
+
+  // ── state + HUD wiring ──────────────────────────────────────────────────────
+  const S = { t: 1, play: true, speed: 2, k: 0, trainPlay: true, thresh: 0.10,
+              indOnly: false, showSink: true };
+  const $ = id => document.getElementById(id);
+  const hits = k => {
+    let n = 0;
+    for (let i = D.region[0]; i < D.region[1]; i++) n += D.ckpts[k].predOk[i];
+    return n;
+  };
+  const regN = D.region[1] - D.region[0];
+  const fmtTok = s => { const n = s * D.tokensPerStep;
+    return n >= 1e9 ? (n / 1e9).toFixed(1) + "B" : n >= 1e6 ? (n / 1e6).toFixed(0) + "M" : String(n); };
+  $("modelline").textContent = `${D.model} — ${nL} layers × ${nH} heads · ` +
+    `${nCk} training checkpoints (step 0 → ${D.steps[nCk - 1] / 1000}k)`;
+  $("trainscrub").max = nCk - 1;
+  $("scrub").max = N - 1;
+  $("playbtn").onclick = () => { S.play = !S.play; $("playbtn").textContent = S.play ? "❚❚" : "▶"; };
+  $("speed").onchange = e => S.speed = +e.target.value;
+  $("scrub").oninput = e => { S.t = +e.target.value; S.play = false; $("playbtn").textContent = "▶"; refresh(); };
+  $("thresh").oninput = e => { S.thresh = +e.target.value; $("threshv").textContent = S.thresh.toFixed(2); refresh(); };
+  $("indonly").onchange = e => { S.indOnly = e.target.checked; refresh(); };
+  $("showsink").onchange = e => { S.showSink = e.target.checked; refresh(); };
+  $("trainbtn").onclick = () => {
+    if (!S.trainPlay && S.k >= nCk - 1) S.k = 0;     // replay the birth from step 0
+    S.trainPlay = !S.trainPlay;
+    $("trainbtn").textContent = S.trainPlay ? "❚❚" : "▶";
+    refresh();
+  };
+  $("trainscrub").oninput = e => {
+    S.k = +e.target.value; S.trainPlay = false; $("trainbtn").textContent = "▶"; refresh();
+  };
+
+  // ── mini phase-change chart: loss on copy 2 + top induction score vs step ───
+  const chart = $("chart"), cg = chart.getContext("2d");
+  const CW = chart.width, CH = chart.height, ML = 14, MR = 14, MT = 26, MB = 20;
+  const lx = s => ML + (Math.log10(s + 1) / Math.log10(D.steps[nCk - 1] + 1)) * (CW - ML - MR);
+  const maxL2 = Math.max(...D.ckpts.map(c => c.stats.loss2));
+  function drawChart() {
+    cg.clearRect(0, 0, CW, CH);
+    cg.font = "20px 'Segoe UI', sans-serif"; cg.textBaseline = "top";
+    cg.fillStyle = "#0E9E76"; cg.fillText("loss, copy 2", ML + 2, 2);
+    cg.fillStyle = "#e06050"; cg.fillText("top induction score", CW - MR - 172, 2);
+    // playhead
+    cg.strokeStyle = "#35e0ff"; cg.lineWidth = 2;
+    cg.beginPath(); cg.moveTo(lx(D.steps[S.k]), MT - 4); cg.lineTo(lx(D.steps[S.k]), CH - MB + 4); cg.stroke();
+    const series = [["#0E9E76", c => 1 - c.stats.loss2 / maxL2],
+                    ["#e06050", c => c.stats.topScore]];
+    for (const [col, f] of series) {
+      cg.strokeStyle = col; cg.fillStyle = col; cg.lineWidth = 3;
+      cg.beginPath();
+      D.ckpts.forEach((c, i) => {
+        const x = lx(D.steps[i]), y = MT + (1 - f(c)) * (CH - MT - MB);
+        i ? cg.lineTo(x, y) : cg.moveTo(x, y);
+      });
+      cg.stroke();
+      D.ckpts.forEach((c, i) => {
+        cg.beginPath(); cg.arc(lx(D.steps[i]), MT + (1 - f(c)) * (CH - MT - MB), 4, 0, 7); cg.fill();
+      });
+    }
+    cg.fillStyle = "#5d7ba3"; cg.textBaseline = "bottom";
+    for (const s of [0, 1000, 16000, 143000])
+      cg.fillText(s >= 1000 ? s / 1000 + "k" : s, lx(s) - 8, CH - 1);
+  }
+  chart.onclick = e => {                       // click the chart to jump through training
+    const x = e.offsetX * (CW / chart.clientWidth);
+    let best = 0, bd = 1e9;
+    D.steps.forEach((s, i) => { const d = Math.abs(lx(s) - x); if (d < bd) { bd = d; best = i; } });
+    S.k = best; S.trainPlay = false; $("trainbtn").textContent = "▶"; refresh();
+  };
+
+  // ── refresh: everything that depends on (playhead, checkpoint, filters) ─────
+  const cInd = new THREE.Color(0x35e0ff), cOther = new THREE.Color(0x51627d);
+  const cSink = new THREE.Color(0x2c3d5e);
+  const cHit = new THREE.Color(0x27c46f), cMiss = new THREE.Color(0xe0483a);
+  const cMute = new THREE.Color(0x39445a);
+  const OTHER_CAP = 90, SINK_CAP = 48;
+  function refresh() {
+    const t = S.t, C = D.ckpts[S.k];
+
+    // arcs for dest = t: cell(src) → head(L,H) → cell(dest); BOS srcs drain to the well
+    const wMin = S.thresh * 255;
+    const kept = [];
+    for (const [L, H, src, w] of byDest(S.k)[t]) {
+      if (w < wMin) continue;
+      const isInd = indSet.has(L * 4096 + H);
+      if (S.indOnly && !isInd) continue;
+      const toSink = src < P;
+      if (toSink && !S.showSink) continue;
+      kept.push([L, H, src, w, isInd, toSink]);
+    }
+    // destined-head arcs always drawn; background + sink attention capped to the strongest
+    const other = kept.filter(k => !k[4] && !k[5]).sort((a, b) => b[3] - a[3]).slice(0, OTHER_CAP);
+    const sink = kept.filter(k => k[5]).sort((a, b) => b[3] - a[3]).slice(0, SINK_CAP);
+    const draw = kept.filter(k => k[4] && !k[5]).concat(other, sink);
+    let v = 0;
+    for (const [L, H, src, w, isInd, toSink] of draw) {
+      const curve = new THREE.CatmullRomCurve3([
+        pos3(src, 0.35), new THREE.Vector3(0, yPos(L), zPos(H)), pos3(t, 0.35)]);
+      const col = toSink ? cSink.clone().multiplyScalar(0.10 + 0.25 * (w / 255))
+                : isInd  ? cInd.clone().multiplyScalar(0.30 + 1.05 * (w / 255))
+                         : cOther.clone().multiplyScalar(0.10 + 0.30 * (w / 255));
+      let prev = null;
+      for (let s = 0; s <= SEGS; s++) {
+        const pt = curve.getPoint(s / SEGS);
+        if (prev) {
+          arcPos.set([prev.x, prev.y, prev.z, pt.x, pt.y, pt.z], v * 3);
+          arcCol.set([col.r, col.g, col.b, col.r, col.g, col.b], v * 3);
+          v += 2;
+        }
+        prev = pt;
+      }
+    }
+    arcGeo.setDrawRange(0, v);
+    arcGeo.attributes.position.needsUpdate = arcGeo.attributes.color.needsUpdate = true;
+
+    // head colour = this checkpoint's induction score; brightness adds firing glow.
+    // At step 0 the wall is uniformly dark slate — the heatmap literally lights up.
+    for (let L = 0; L < nL; L++) {
+      const act = C.act[L], ind = C.ind[L];
+      for (let h = 0; h < nH; h++) {
+        const a = act[t * nH + h] / 255, s = ind[h];
+        c3.copy(cOther).lerp(cInd, Math.min(1, s / 0.6))
+          .multiplyScalar(0.12 + 0.9 * a * a + 1.1 * s);
+        heads.setColorAt(L * nH + h, c3);
+      }
+    }
+    heads.instanceColor.needsUpdate = true;
+    for (const r of rings) {                     // rings ignite as heads cross threshold
+      const s = C.ind[r.userData.L][r.userData.H];
+      r.material.color.setHex(s >= THRESH ? 0x35e0ff : 0x22304a);
+      r.scale.setScalar(0.8 + s * 0.5);
+    }
+
+    // pegs behind the playhead: green = hit, red = miss; copy-1 board muted
+    // (missing on random tokens is EXPECTED — the game is on the copy-2 board)
+    for (let i = 0; i < N - 1; i++) {
+      const seen = i <= t - 1, tokPos = i + 1;
+      const p = pos3(tokPos, 0.42);
+      const sc = !seen ? 0.0001 : tokPos < P + SEQ ? 0.55 : 1;   // small pegs keep board-1 text readable
+      m4.makeScale(sc, sc, sc).setPosition(p.x, p.y, p.z);
+      pegs.setMatrixAt(i, m4);
+      c3.copy(C.predOk[i] ? cHit : cMiss);
+      if (tokPos < P + SEQ) c3.lerp(cMute, 0.8).multiplyScalar(0.6);
+      pegs.setColorAt(i, c3);
+    }
+    pegs.instanceMatrix.needsUpdate = true;
+    pegs.instanceColor.needsUpdate = true;
+
+    // playhead pillar + label + HUD
+    const cur = pos3(t, 0);
+    pillar.position.set(cur.x, (topY + 1) / 2, cur.z);
+    label.position.set(cur.x, 3.4, cur.z + 1.2);
+    drawLabel(D.tokens[t]);
+    const cell = t >= P ? (() => { const j = (t - P) % SEQ;
+      return String.fromCharCode(65 + j % COLS) + (Math.floor(j / COLS) + 1); })() : "sink";
+    const role = t < P ? "prefix" : t < P + SEQ ? "copy 1" : "copy 2";
+    $("pos").textContent = `${cell} · ${role}`;
+    $("scrub").value = t;
+    $("trainscrub").value = S.k;
+    $("steplab").textContent = `step ${C.step.toLocaleString()} · ≈${fmtTok(C.step)} tokens seen`;
+    $("statline").innerHTML = `2nd-copy loss ${C.stats.loss2.toFixed(1)} · ` +
+      `top induction score <span class="score">${C.stats.topScore.toFixed(2)}</span>`;
+    $("hitline").innerHTML = `copy-2 board: <span class="hits">${hits(S.k)}/${regN} hits</span>` +
+      ` now · ${hits(nCk - 1)}/${regN} fully trained`;
+    drawChart();
+    if (t >= 1) {
+      const i = t - 1, ok = C.predOk[i];
+      $("pred").innerHTML = `model predicted <span class="tok">${esc(C.pred[i])}</span> ` +
+        `(${(C.predP[i] * 100).toFixed(0)}%) — actual <span class="tok">${esc(D.tokens[t])}</span> ` +
+        `<span class="${ok ? "ok" : "bad"}">${ok ? "✓ hit" : "✗ miss"}</span> · loss ${C.loss[i].toFixed(2)}`;
+    }
+  }
+  function esc(s) { const d = document.createElement("i"); d.textContent = JSON.stringify(s); return d.innerHTML; }
+
+  // ── playback: token replay loops, training advances one checkpoint per lap ──
+  let acc = 0, accK = 0, last = performance.now();
+  function tick(now) {
+    requestAnimationFrame(tick);
+    const dt = (now - last) / 1000; last = now;
+    let dirty = false;
+    if (S.play) {
+      acc += dt * S.speed * 3;                     // base pace: 3 tokens/sec at 1×
+      if (acc >= 1) {
+        S.t += Math.floor(acc); acc %= 1;
+        if (S.t > N - 1) S.t = 1;                  // loop
+        dirty = true;
+      }
+    }
+    if (S.trainPlay) {
+      accK += dt;
+      if (accK >= 2.4) {                           // one checkpoint every 2.4 s
+        accK = 0;
+        if (S.k < nCk - 1) { S.k++; dirty = true; }
+        else { S.trainPlay = false; $("trainbtn").textContent = "▶"; }
+      }
+    }
+    if (dirty) refresh();
+    controls.update();
+    composer.render();
+  }
+  refresh();
+  requestAnimationFrame(tick);
+  window.__viewer = { camera, controls, S, refresh };   // scripting/debug handle
+}
+</script>
+</body>
+</html>

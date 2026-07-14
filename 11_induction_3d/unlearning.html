@@ -57,7 +57,8 @@
   <div id="scenerow">scene <select id="scenesel">
     <option value="induction">induction</option>
     <option value="refusal">refusal</option>
-    <option value="unlearning" selected>unlearning</option></select></div>
+    <option value="unlearning" selected>unlearning</option>
+    <option value="emergence">emergence</option></select></div>
   <div id="modelline" class="stats"></div>
   <div id="gaugeline" class="stats"></div>
 </div>
@@ -119,7 +120,8 @@ idxScript.src = "results/index.js";
 idxScript.onload = () => {
   const sc = document.getElementById("scenesel");
   sc.onchange = () => { if (sc.value === "induction") location.href = "viewer.html";
-                        else if (sc.value === "refusal") location.href = "refusal.html"; };
+                        else if (sc.value === "refusal") location.href = "refusal.html";
+                        else if (sc.value === "emergence") location.href = "emergence.html"; };
 };
 document.head.appendChild(idxScript);
 
