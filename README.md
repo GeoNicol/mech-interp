@@ -10,9 +10,10 @@ Each experiment is a small, self-contained script built on
 [TransformerLens](https://github.com/TransformerLensOrg/TransformerLens). The sequence
 follows the standard interpretability workflow: **observe** a behaviour, **localize** the
 components that correlate with it, then **intervene causally** to prove they implement it.
-Experiments 01–07 dissect the induction circuit; experiments 08–09 apply the same
+Experiments 01–07 dissect the induction circuit; experiments 08–10 apply the same
 locate-then-ablate playbook to AI safety — finding the refusal direction in a chat model,
-then using it to probe whether "unlearned" models truly forgot or merely learned to suppress.
+then using it to probe whether "unlearned" models truly forgot or merely learned to
+suppress. Experiment 11 replays it all live in a 3D viewer.
 
 ## Key results
 
@@ -243,6 +244,21 @@ QA). `retain90` staying flat under ablation is the control that makes the jump t
 ![Unlearning scene, NPO baseline (below the floor)](11_induction_3d/results/unlearning_23_npo_baseline_Llama-3_2-1B.png)
 ![Unlearning scene, NPO after ablating the refusal direction (above the floor)](11_induction_3d/results/unlearning_24_npo_recovered_Llama-3_2-1B.png)
 
+A fourth scene (`emergence.html`, from experiment 07) adds a second time axis: **training**.
+The full replay is captured at each of the 14 published Pythia-160m checkpoints — same
+boards, same stimulus, only the weights change — and a training panel (with a live,
+scrubbable copy of the phase-change chart) plays the run from step 0 to step 143,000.
+For the first billion tokens the wall is dark and the targeting board fills with red:
+0/50 hits, attention draining uselessly into the BOS well. Then, between step 512 and
+step 1000, the circuit is *born* — rings mark the 17 heads destined to become induction
+heads and ignite as each crosses threshold (the top head jumps 0.06 → 0.90), the beams
+snap into the induction pattern, and the board flips green: 25/50 at step 1000, 46/50 by
+step 3000. The first-copy pegs stay red the whole run — the built-in control, since
+random tokens never become predictable without lookback.
+
+![Emergence scene, step 512 — before the phase change](11_induction_3d/results/emergence_25_step512_pythia-160m.png)
+![Emergence scene, step 143000 — the trained circuit](11_induction_3d/results/emergence_26_step143000_pythia-160m.png)
+
 `capture_3d.py` records one clean + one ablated pass (losses, top-1 predictions,
 attention edges, per-head firing intensity) into a data file; `viewer.html` is fully
 self-contained — double-click it, no server, no build step. A model selector in the
@@ -280,6 +296,8 @@ python 11_induction_3d/capture_3d.py                # records the replay data, t
                                                     # open 11_induction_3d/viewer.html
 python 11_induction_3d/capture_refusal.py           # refusal scene → refusal.html
 python 11_induction_3d/capture_unlearning.py        # unlearning scene → unlearning.html
+python 11_induction_3d/capture_emergence.py         # emergence scene (14 Pythia-160m
+                                                    # checkpoints) → emergence.html
 ```
 
 Newer architectures absent from `HookedTransformer`'s registry (e.g. Qwen3.5) load
