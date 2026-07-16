@@ -2,6 +2,5 @@ __pycache__/
 *.pyc
 CLAUDE.md
 12_train_emergence/checkpoints/
-13_backup_heads/checkpoints/
 *.log
 .playwright-mcp/

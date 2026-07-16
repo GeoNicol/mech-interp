@@ -13,10 +13,9 @@ components that correlate with it, then **intervene causally** to prove they imp
 Experiments 01–07 dissect the induction circuit; experiments 08–10 apply the same
 locate-then-ablate playbook to AI safety — finding the refusal direction in a chat model,
 then using it to probe whether "unlearned" models truly forgot or merely learned to
-suppress. Experiment 11 replays it all live in a 3D viewer. Experiments 12–13 rebuild
-the circuit from scratch: training a tiny GPT locally to watch the phase change happen
-under a controllable data diet, then trying to breed *backup* heads with targeted
-train-time ablation.
+suppress. Experiment 11 replays it all live in a 3D viewer. Experiment 12 rebuilds the
+circuit from scratch: training a tiny GPT locally to watch the phase change happen
+under a controllable data diet.
 
 ## Key results
 
@@ -304,23 +303,6 @@ else dark (≤0.02). Placement wasn't forced — the model had four layers to ch
 ![Phase change, trained locally](12_train_emergence/results/training_27_phase_tiny-4L256-mix85-syn15.png)
 ![Birth of the induction heads, trained locally](12_train_emergence/results/training_28_filmstrip_tiny-4L256-mix85-syn15.png)
 
-### 13 — Can training pressure create backup heads?
-
-Experiment 05 found gpt2 has no backup induction heads while Qwen3-1.7B does — so where
-does redundancy come from? This experiment tries to *manufacture* it. Take experiment
-12's converged model — whose entire induction ability is the L3H0+L3H1 pair (zeroing
-just those two heads sends the 2nd-copy loss from 0.72 back to 10.95 nats: total
-blindness) — and continue training on the same data mix while randomly zero-ablating
-the pair on 50% of the rows of every batch: targeted dropout at `hook_z`, the same hook
-every ablation in this repo uses. Whenever the pair is dropped, the copy loss on the
-synthetic rows reappears — recreating, for the first time since ignition, live gradient
-pressure toward building a *second* induction circuit. Both conditions are probed
-throughout: clean, and with the pair fully ablated (the experiment-05 measurement,
-inside the broken model — where backups are visible by construction). If a backup is
-born, redundancy is an adaptation to unreliability; if ~100M tokens of maximal pressure
-(the budget the original pair ignited in) can't recruit one, gpt2's missing safety net
-looks like the default, not an accident.
-
 ## Reproducing
 
 Requirements: Python 3.12, CUDA GPU (~12 GB; models load in bf16), and:
@@ -353,8 +335,6 @@ python 11_induction_3d/capture_emergence.py         # emergence scene (14 Pythia
                                                     # checkpoints) → emergence.html
 python 12_train_emergence/train_emergence.py        # trains the 29M model from scratch
                                                     # (~9h on a 12GB GPU), resumable
-python 13_backup_heads/backup_heads.py              # continues 12's model with its
-                                                    # induction pair dropped (~3h), resumable
 ```
 
 Newer architectures absent from `HookedTransformer`'s registry (e.g. Qwen3.5) load
