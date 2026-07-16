@@ -13,7 +13,10 @@ components that correlate with it, then **intervene causally** to prove they imp
 Experiments 01–07 dissect the induction circuit; experiments 08–10 apply the same
 locate-then-ablate playbook to AI safety — finding the refusal direction in a chat model,
 then using it to probe whether "unlearned" models truly forgot or merely learned to
-suppress. Experiment 11 replays it all live in a 3D viewer.
+suppress. Experiment 11 replays it all live in a 3D viewer. Experiments 12–13 rebuild
+the circuit from scratch: training a tiny GPT locally to watch the phase change happen
+under a controllable data diet, then trying to breed *backup* heads with targeted
+train-time ablation.
 
 ## Key results
 
@@ -268,6 +271,56 @@ hybrid Qwen3.5-2B, whose pattern-less linear-attention layers render as flat sla
 ![3D viewer, clean](11_induction_3d/results/viewer_18_clean_gpt2.png)
 ![3D viewer, ablated](11_induction_3d/results/viewer_19_ablated_gpt2.png)
 
+### 12 — Train your own phase change (a data-pressure dose-response)
+
+Experiment 07 replayed the phase change from Pythia's published checkpoints; this one
+removes the training wheels. A 4-layer, 29M-parameter HookedTransformer (untied GPT-2
+embeddings dominate the count; ~3M parameters live in the blocks) is trained from
+scratch on the local GPU, with the experiment-01 measurement running in-line every 256
+steps — so the birth of the circuit is watchable live, `tail -f` on a CSV.
+
+The training data is the experiment's independent variable — a three-way dose-response
+on *why* induction heads form at all:
+
+- **TinyStories only** (`tiny-4L256`): the circuit **never forms** (top induction score
+  ~0.01 all run). Its ~7k-word world is memorizable from weights, so looking back never
+  pays. Crucially, previous-token heads DO form (0.57) — the upstream half of the
+  circuit is free; it's the composition that needs pressure.
+- **+30% wikitext-103** (`tiny-4L256-mix30`): natural-text pressure triples the top
+  score to ~0.065 — and stalls mid-ramp. Consistent with the literature putting the
+  natural-text transition at ~2.5B tokens; this budget is 491M.
+- **85% wikitext + 15% synthetic repeated-random rows** (`tiny-4L256-mix85-syn15`):
+  sequences of literally random tokens with a repeating block make copying the *only*
+  winning strategy — induction pressure is maximal by construction. The phase change
+  fires at **~100M tokens**: in a single 8M-token window the top induction score jumps
+  **0.02 → 0.72** (peaking 0.95) and the 2nd-copy loss crashes **10.9 → 9.1 → 0.72**,
+  while the 1st-copy control stays flat at ~11 nats for the entire run.
+
+The circuit the model built is textbook-minimal, cleaner than any pretrained model in
+this repo: exactly **two induction heads (L3H0, L3H1 — 0.92 each) in the last layer**,
+fed by two previous-token heads (L2H1, L2H7) in the layer directly upstream, everything
+else dark (≤0.02). Placement wasn't forced — the model had four layers to choose from.
+
+![Phase change, trained locally](12_train_emergence/results/training_27_phase_tiny-4L256-mix85-syn15.png)
+![Birth of the induction heads, trained locally](12_train_emergence/results/training_28_filmstrip_tiny-4L256-mix85-syn15.png)
+
+### 13 — Can training pressure create backup heads?
+
+Experiment 05 found gpt2 has no backup induction heads while Qwen3-1.7B does — so where
+does redundancy come from? This experiment tries to *manufacture* it. Take experiment
+12's converged model — whose entire induction ability is the L3H0+L3H1 pair (zeroing
+just those two heads sends the 2nd-copy loss from 0.72 back to 10.95 nats: total
+blindness) — and continue training on the same data mix while randomly zero-ablating
+the pair on 50% of the rows of every batch: targeted dropout at `hook_z`, the same hook
+every ablation in this repo uses. Whenever the pair is dropped, the copy loss on the
+synthetic rows reappears — recreating, for the first time since ignition, live gradient
+pressure toward building a *second* induction circuit. Both conditions are probed
+throughout: clean, and with the pair fully ablated (the experiment-05 measurement,
+inside the broken model — where backups are visible by construction). If a backup is
+born, redundancy is an adaptation to unreliability; if ~100M tokens of maximal pressure
+(the budget the original pair ignited in) can't recruit one, gpt2's missing safety net
+looks like the default, not an accident.
+
 ## Reproducing
 
 Requirements: Python 3.12, CUDA GPU (~12 GB; models load in bf16), and:
@@ -298,6 +351,10 @@ python 11_induction_3d/capture_refusal.py           # refusal scene → refusal.
 python 11_induction_3d/capture_unlearning.py        # unlearning scene → unlearning.html
 python 11_induction_3d/capture_emergence.py         # emergence scene (14 Pythia-160m
                                                     # checkpoints) → emergence.html
+python 12_train_emergence/train_emergence.py        # trains the 29M model from scratch
+                                                    # (~9h on a 12GB GPU), resumable
+python 13_backup_heads/backup_heads.py              # continues 12's model with its
+                                                    # induction pair dropped (~3h), resumable
 ```
 
 Newer architectures absent from `HookedTransformer`'s registry (e.g. Qwen3.5) load
