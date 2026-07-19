@@ -15,7 +15,9 @@ locate-then-ablate playbook to AI safety — finding the refusal direction in a 
 then using it to probe whether "unlearned" models truly forgot or merely learned to
 suppress. Experiment 11 replays it all live in a 3D viewer. Experiment 12 rebuilds the
 circuit from scratch: training a tiny GPT locally to watch the phase change happen
-under a controllable data diet.
+under a controllable data diet. Experiment 13 returns to the self-repair question
+with a sharper knife — confirming the backup heads survive *faithful* (resample-patch)
+ablation, not just the off-distribution shock of zeroing.
 
 ## Key results
 
@@ -35,7 +37,9 @@ Three findings worth highlighting:
    (~40–60% through the network).
 2. **Self-repair at scale** — Qwen3-1.7B barely degrades (2.9×) when its induction heads
    are removed: larger all-attention models carry redundant backup pathways. GPT-2 has no
-   such safety net (36.5×).
+   such safety net (36.5×). Those backups are real, not a measurement artifact: they
+   reappear under both in-distribution nulls — mean-ablation (06) and faithful
+   resample-patch ablation (13).
 3. **Division of labor in hybrid models** — Qwen3.5-2B concentrates induction into its few
    softmax layers (making it *more* ablation-fragile than the older Qwen3, 23.3×), and its
    softmax layers contain **zero** dedicated previous-token heads — the upstream half of
@@ -303,6 +307,34 @@ else dark (≤0.02). Placement wasn't forced — the model had four layers to ch
 ![Phase change, trained locally](12_train_emergence/results/training_27_phase_tiny-4L256-mix85-syn15.png)
 ![Birth of the induction heads, trained locally](12_train_emergence/results/training_28_filmstrip_tiny-4L256-mix85-syn15.png)
 
+### 13 — Faithful ablation (is the Hydra real, or an artifact of zeroing?)
+
+Experiment 05 hunted Qwen3-1.7B's backup heads with *zero*-ablation, and experiment 06
+flagged the catch: zeroing pushes the residual stream off-distribution, so some of the
+"self-repair" it measures could be an artifact of the intervention rather than the model's
+real behaviour. This experiment settles it by re-running the Hydra hunt under the
+gold-standard causal null — **resample (activation-patch) ablation**. Instead of writing
+zeros, each removed head is handed the output it actually produces on a matched *corrupt*
+run: `[BOS] r0..r49 s0..s49`, same first copy but a fresh, non-repeating second half. The
+head still emits a real activation — just one from an input where there is nothing to copy.
+Because attention is causal and the two first halves are identical, the patch is a no-op on
+copy 1 and surgically nulls only the induction region.
+
+The verdict is clean: on Qwen3-1.7B, patch-ablation recruits the **same** backup heads as
+zeroing (L21H9, L18H4, L8H5; 4.4× vs 4.5×), so the self-repair is genuine. Mean-ablation —
+the other in-distribution null — finds only two of the three, while the head all methods
+agree on (L21H9) lights up to induction score ~0.6 *inside the broken model*, dark in the
+clean one. Drop the threshold to 0.2 and the picture sharpens: the sub-threshold tail is
+diffuse rather than a deep bench (only 3–4 more marginal heads), and patch recruits three
+of zero's four — declining to follow zeroing onto its one over-recruit (L23H14), a
+borderline head that faithful ablation leaves just below the bar. GPT-2 and Pythia-1.4B stay
+flat under all three interventions (no backups to find), and across every model the damage
+ordering is consistent — **zero > patch > mean**: zeroing overstates the damage, mean
+understates it, and resample-patching is the honest middle.
+
+![Faithful-ablation trajectory, Qwen3-1.7B](13_patching_hydra/results/patch_29_trajectory_Qwen3-1_7B.png)
+![Backups after removing the primary circuit, Qwen3-1.7B](13_patching_hydra/results/patch_30_backups_Qwen3-1_7B.png)
+
 ## Reproducing
 
 Requirements: Python 3.12, CUDA GPU (~12 GB; models load in bf16), and:
@@ -335,6 +367,8 @@ python 11_induction_3d/capture_emergence.py         # emergence scene (14 Pythia
                                                     # checkpoints) → emergence.html
 python 12_train_emergence/train_emergence.py        # trains the 29M model from scratch
                                                     # (~9h on a 12GB GPU), resumable
+python 13_patching_hydra/patching_hydra.py Qwen/Qwen3-1.7B   # Hydra hunt under zero/mean/patch
+python 13_patching_hydra/patching_hydra.py Qwen/Qwen3-1.7B 0.2   # 2nd arg overrides threshold
 ```
 
 Newer architectures absent from `HookedTransformer`'s registry (e.g. Qwen3.5) load
