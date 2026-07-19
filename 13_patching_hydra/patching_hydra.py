@@ -70,7 +70,11 @@ try:
 except Exception:
     from transformer_lens.model_bridge import TransformerBridge
     model = TransformerBridge.boot_transformers(MODEL, device=DEV, dtype=DTYPE)
-    model.enable_compatibility_mode()
+    # no_processing skips TransformerLens's fold-LN / centre-unembed reparameterisation.
+    # It's output-preserving for what we measure (attention patterns + hook_z + loss) and
+    # avoids cloning the huge unembed — which OOMs a 12 GB GPU on big hybrids like
+    # Qwen3.5-4B (32L, d_vocab 248k). Peak then ~9.6 GB instead of >12 GB.
+    model.enable_compatibility_mode(no_processing=True)
 nL, nH = model.cfg.n_layers, model.cfg.n_heads
 
 torch.manual_seed(0)

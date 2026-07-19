@@ -337,10 +337,12 @@ agree on (L21H9) lights up to induction score ~0.6 *inside the broken model*, da
 clean one. Drop the threshold to 0.2 and the picture sharpens: the sub-threshold tail is
 diffuse rather than a deep bench (only 3–4 more marginal heads), and patch recruits three
 of zero's four — declining to follow zeroing onto its one over-recruit (L23H14), a
-borderline head that faithful ablation leaves just below the bar. GPT-2 and Pythia-1.4B stay
-flat under all three interventions (no backups to find), and across every model the damage
-ordering is consistent — **zero > patch > mean**: zeroing overstates the damage, mean
-understates it, and resample-patching is the honest middle.
+borderline head that faithful ablation leaves just below the bar. GPT-2, Pythia-1.4B, and
+both Qwen3.5 hybrids (2B in exp-05, 4B here) stay flat under all three interventions — no
+backups to find. The exact damage *ordering* turns out to be model-dependent (zero > patch >
+mean on GPT-2 and Pythia; zero > mean > patch on the dense 4B; on Qwen3-1.7B mean even edges
+out zero), so the honest cross-model claim isn't a magnitude ranking — it's that **patch and
+zero agree on which backups exist**, which is the question the experiment actually asks.
 
 ![Faithful-ablation trajectory, Qwen3-1.7B](13_patching_hydra/results/patch_29_trajectory_Qwen3-1_7B.png)
 ![Backups after removing the primary circuit, Qwen3-1.7B](13_patching_hydra/results/patch_30_backups_Qwen3-1_7B.png)
