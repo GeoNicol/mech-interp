@@ -2,9 +2,9 @@
 
 Hands-on mechanistic interpretability experiments that locate, verify, and dismantle the
 **induction circuit** — the attention-head mechanism behind in-context learning — across
-four models from three labs and three architecture eras: GPT-2-small (OpenAI, 2019),
+five models from three labs and three architecture eras: GPT-2-small (OpenAI, 2019),
 Pythia-1.4B (EleutherAI, 2023), Qwen3-1.7B (Alibaba, 2025), and the hybrid-attention
-Qwen3.5-2B (2026).
+Qwen3.5-2B and 4B (2026).
 
 Each experiment is a small, self-contained script built on
 [TransformerLens](https://github.com/TransformerLensOrg/TransformerLens). The sequence
@@ -21,14 +21,14 @@ ablation, not just the off-distribution shock of zeroing.
 
 ## Key results
 
-| | GPT-2-small | Pythia-1.4B | Qwen3-1.7B | Qwen3.5-2B |
-|---|---|---|---|---|
-| Architecture | 12L × 12H, all softmax | 24L × 16H, all softmax | 28L × 16H, all softmax | 24L × 8H, **6 softmax + 18 linear-attn layers** |
-| Induction heads found | 15 | 20 | 13 | 14 (all in the 6 softmax layers) |
-| Zero-ablating them (2nd-copy loss) | **36.5×** worse | 15.2× worse | 2.9× worse | **23.3×** worse |
-| Mean-ablating them | 23.0× | 11.4× | 3.0× | 19.6× |
-| vs. ablating random heads | 10σ above random | **102σ** above random | 11σ above random | 34σ above random |
-| Cutting upstream prev-token heads | induction scores 0.58 → 0.18 | **0.56 → 0.08** | 0.65 → 0.23 | no prev-token heads exist in softmax layers |
+| | GPT-2-small | Pythia-1.4B | Qwen3-1.7B | Qwen3.5-2B | Qwen3.5-4B |
+|---|---|---|---|---|---|
+| Architecture | 12L × 12H, all softmax | 24L × 16H, all softmax | 28L × 16H, all softmax | 24L × 8H, **6 softmax + 18 linear-attn layers** | 32L × 16H, **8 softmax + 24 linear-attn layers** |
+| Induction heads found | 15 | 20 | 13 | 14 (all in the 6 softmax layers) | **34** (all in the 8 softmax layers) |
+| Zero-ablating them (2nd-copy loss) | **36.5×** worse | 15.2× worse | 2.9× worse | **23.3×** worse | 18.4× worse |
+| Mean-ablating them | 23.0× | 11.4× | 3.0× | 19.6× | 16.6× |
+| vs. ablating random heads | 10σ above random | **102σ** above random | 11σ above random | 34σ above random | *not run* |
+| Cutting upstream prev-token heads | induction scores 0.58 → 0.18 | **0.56 → 0.08** | 0.65 → 0.23 | no prev-token heads exist in softmax layers | *not run* |
 
 Three findings worth highlighting:
 
@@ -44,7 +44,10 @@ Three findings worth highlighting:
    softmax layers (making it *more* ablation-fragile than the older Qwen3, 23.3×), and its
    softmax layers contain **zero** dedicated previous-token heads — the upstream half of
    the circuit apparently lives in the linear-attention layers, which act as natural
-   short-range shift registers.
+   short-range shift registers. The 4B doubles down — 34 induction heads packed into its 8
+   softmax layers, densest at layer 27 (nearly all 16 heads) — the most concentrated
+   induction circuit in this repo, yet *less* ablation-fragile than the 2B (18.4× vs 23.3×):
+   more heads sharing the load means each one matters a little less.
 
 ## The experiments
 
@@ -60,6 +63,13 @@ before the output projection mixes heads) and the cliff vanishes.
 
 ![Induction heatmap, GPT-2](01_induction_heads/results/induction_2_heatmap_gpt2.png)
 ![Ablation A/B, GPT-2](01_induction_heads/results/induction_3_ablation_gpt2.png)
+
+Run on the hybrid **Qwen3.5-4B** it produces the most concentrated circuit in the repo:
+34 induction heads stacked into the 8 softmax layers (the 24 linear-attention layers can't
+attend, so they stay black), escalating with depth to layer 27 — nearly all 16 of its heads
+do induction. Ablating the set collapses the 2nd-copy cliff exactly as in GPT-2 (18.4×).
+
+![Induction heatmap, Qwen3.5-4B](01_induction_heads/results/induction_2_heatmap_Qwen3_5-4B.png)
 
 ### 02 — Random-head control (specificity)
 
