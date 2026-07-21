@@ -9,7 +9,7 @@
 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Start Here — your mech-interp lab, explained</title>
+<title>Start Here — an interactive mech-interp guide</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20100%20100'%3E%3Ctext%20y='.9em'%20font-size='90'%3E🧠%3C/text%3E%3C/svg%3E">
 
 <style>
@@ -187,7 +187,7 @@ kbd{font-family:var(--mono);font-size:11px;background:#0a0e15;border:1px solid v
   <a class="navlink" href="#dose"><span class="n">09</span> Grow one yourself</a>
   <a class="navlink" href="#refusal"><span class="n">10</span> Beyond induction: refusal</a>
   <a class="navlink" href="#unlearn"><span class="n">11</span> Does "unlearning" erase?</a>
-  <a class="navlink" href="#next"><span class="n">12</span> What you built · what's next</a>
+  <a class="navlink" href="#next"><span class="n">12</span> Recap · what's next</a>
   <div style="margin-top:22px;border-top:1px solid var(--line);padding-top:14px">
     <a class="navlink" href="#glossary"><span class="n">🔤</span> Words that tripped me up</a>
   </div>
@@ -197,14 +197,14 @@ kbd{font-family:var(--mono);font-size:11px;background:#0a0e15;border:1px solid v
 
 <!-- ============ HERO / MAP ============ -->
 <section id="top" style="border-bottom:none;padding-top:40px">
-  <div class="eyebrow">a guided tour of your own lab</div>
-  <h1>You built 13 experiments.<br>Here's what they <span style="color:var(--sig)">mean</span>.</h1>
-  <p class="lead">We moved fast. This page is the slow, visual version — no walls of text, everything is a thing you poke. Jump around in any order. Each toy stands on its own.</p>
+  <div class="eyebrow">an interactive guided tour</div>
+  <h1>13 experiments take a language model apart.<br>Here's what they <span style="color:var(--sig)">mean</span>.</h1>
+  <p class="lead">The slow, visual version of the repo — no walls of text; every idea here is something you poke, drag, or toggle. Jump around in any order. Each toy stands on its own.</p>
 
   <div class="row" style="margin:18px 0 4px">
     <span class="pill">🖱️ hover & drag things</span>
     <span class="pill">🔓 "go deeper" only when you want it</span>
-    <span class="pill">📊 charts use <b style="color:var(--sig)">&nbsp;your real data</b></span>
+    <span class="pill">📊 charts use <b style="color:var(--sig)">&nbsp;real result data</b></span>
     <span class="pill">🧭 click the map ↓</span>
   </div>
 
@@ -386,7 +386,7 @@ kbd{font-family:var(--mono);font-size:11px;background:#0a0e15;border:1px solid v
   </div>
 
   <details><summary>go deeper — is the Hydra real, or a zeroing artifact? (exp 13)</summary>
-    <div class="body"><p>Great skeptical question — and you tested it. If backups only "appear" because zero-ablation shocks the model off-distribution, they'd vanish under faithful <b>patching</b>. They didn't: on Qwen3-1.7B, patch recruits the <b>same</b> backups as zero (L21H9, L18H4, L8H5). So the self-repair is a genuine property of the network, not a measurement artifact. The other models recruit nobody — their robustness (where it exists) is spread thin below any threshold, not concentrated in hidden backups.</p></div>
+    <div class="body"><p>Great skeptical question — and experiment 13 tests exactly this. If backups only "appear" because zero-ablation shocks the model off-distribution, they'd vanish under faithful <b>patching</b>. They didn't: on Qwen3-1.7B, patch recruits the <b>same</b> backups as zero (L21H9, L18H4, L8H5). So the self-repair is a genuine property of the network, not a measurement artifact. The other models recruit nobody — their robustness (where it exists) is spread thin below any threshold, not concentrated in hidden backups.</p></div>
   </details>
 </section>
 
@@ -417,9 +417,9 @@ kbd{font-family:var(--mono);font-size:11px;background:#0a0e15;border:1px solid v
 
 <!-- ============ 09 DOSE-RESPONSE ============ -->
 <section id="dose">
-  <div class="eyebrow"><span class="chip exp">exp 12</span> you trained these · real data</div>
+  <div class="eyebrow"><span class="chip exp">exp 12</span> trained from scratch · real data</div>
   <h2>Grow one yourself — the <span style="color:var(--safe)">data</span> decides</h2>
-  <p class="idea">You trained a tiny model from scratch, three times, changing only the <b>data mix</b>. Story-only data <b>never</b> grows the circuit. Add the right pressure and it <b>ignites</b> in a single 8-million-token window. The recipe matters, not just the size.</p>
+  <p class="idea">This experiment trains a tiny model from scratch, three times, changing only the <b>data mix</b>. Story-only data <b>never</b> grows the circuit. Add the right pressure and it <b>ignites</b> in a single 8-million-token window. The recipe matters, not just the size.</p>
 
   <div class="panel">
     <div class="eyebrow" style="margin-bottom:10px">induction score over training — click a recipe to toggle it</div>
@@ -427,7 +427,7 @@ kbd{font-family:var(--mono);font-size:11px;background:#0a0e15;border:1px solid v
     <svg id="doseSvg" viewBox="0 0 900 320" role="img" aria-label="dose response"></svg>
   </div>
   <div class="callout aha" style="margin-top:14px">
-    <b>The whole circuit was two heads.</b> Your ignited model's induction lived in exactly <b class="sig">L3H0 + L3H1</b>, fed by prev-token heads <b class="up">L2H1 / L2H7</b> one layer up. Zero just that pair → copy-2 surprise rockets from <b>0.72 back to 10.95</b>. Textbook-minimal, and you built it.
+    <b>The whole circuit was two heads.</b> The ignited model's induction lived in exactly <b class="sig">L3H0 + L3H1</b>, fed by prev-token heads <b class="up">L2H1 / L2H7</b> one layer up. Zero just that pair → copy-2 surprise rockets from <b>0.72 back to 10.95</b>. Textbook-minimal — and reproducible from scratch on a single GPU.
   </div>
   <details><summary>go deeper — why doesn't TinyStories alone work?</summary>
     <div class="body"><p>Interesting split: the <b class="up">upstream</b> half (prev-token heads) forms for free on almost any text — it reached 0.57 even on stories alone. But <b class="sig">composition</b> — wiring that upstream signal into a copying circuit — only happens when the data <i>rewards</i> copying. The synthetic repeated-block rows are that reward: the only way to predict them is to copy. 85% real text + 15% synthetic was enough to ignite; 30% wikitext with no synthetic stalled at 0.065 after 445M tokens. The circuit needs a <i>reason</i> to exist.</p></div>
@@ -473,7 +473,7 @@ kbd{font-family:var(--mono);font-size:11px;background:#0a0e15;border:1px solid v
 <section id="unlearn">
   <div class="eyebrow"><span class="chip exp">exp 09 · 10</span> alignment-relevant · real data</div>
   <h2>Does "<span style="color:var(--dmg)">unlearning</span>" really erase knowledge?</h2>
-  <p class="idea">Companies "unlearn" facts from models for safety. But did the knowledge <b>leave</b>, or just get <b>hidden</b>? You measured five checkpoints two different ways — and the answer <b>flips depending on how you ask.</b></p>
+  <p class="idea">Companies "unlearn" facts from models for safety. But did the knowledge <b>leave</b>, or just get <b>hidden</b>? These experiments measure five checkpoints two different ways — and the answer <b>flips depending on how you ask.</b></p>
 
   <div class="panel">
     <div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:10px">
@@ -500,39 +500,40 @@ kbd{font-family:var(--mono);font-size:11px;background:#0a0e15;border:1px solid v
     <div class="callout warn" style="margin-top:14px" id="ulMsg"></div>
   </div>
   <details><summary>go deeper — why this matters for alignment</summary>
-    <div class="body"><p>"We unlearned it" is a <b>safety claim</b>, and this shows a safety claim can be an artifact of the metric. NPO looks fully forgotten if you read the model's greedy answer — but the ground-truth answer's <i>probability</i> is only <b>suppressed</b>, and one intervention (ablating the refusal direction) lifts it 4× back above the floor. GradDiff genuinely forgot; RMU barely forgot on Q&A at all. Same word — "unlearned" — three different realities. Building the tools and evals that catch this is a real contribution to safe, trustworthy AI. It's the direction we talked about tonight.</p></div>
+    <div class="body"><p>"We unlearned it" is a <b>safety claim</b>, and this shows a safety claim can be an artifact of the metric. NPO looks fully forgotten if you read the model's greedy answer — but the ground-truth answer's <i>probability</i> is only <b>suppressed</b>, and one intervention (ablating the refusal direction) lifts it 4× back above the floor. GradDiff genuinely forgot; RMU barely forgot on Q&A at all. Same word — "unlearned" — three different realities. Building the tools and evals that catch this is a real contribution to safe, trustworthy AI.</p></div>
   </details>
 </section>
 
 <!-- ============ 12 NEXT ============ -->
 <section id="next">
-  <div class="eyebrow">where you are · where to go</div>
-  <h2>You already speak this language</h2>
-  <p class="lead">Every experiment above is one move repeated: <b class="sig">find</b> a behaviour → <b class="dmg">break</b> it on purpose → <b class="good">prove</b> the break was causal → <b>control</b> for the boring explanations. You've done it for copying, for composition, for training-time birth, and for two safety behaviours.</p>
+  <div class="eyebrow">zoom out · where this goes</div>
+  <h2>It's all one move, repeated</h2>
+  <p class="lead">Every experiment here is one move repeated: <b class="sig">find</b> a behaviour → <b class="dmg">break</b> it on purpose → <b class="good">prove</b> the break was causal → <b>control</b> for the boring explanations. The repo runs that loop on copying, on composition, on training-time birth, and on two safety behaviours.</p>
 
   <div class="grid2" style="margin-top:10px">
     <div class="panel">
-      <h3 style="margin-top:0">🕹️ You also built 3D replays</h3>
+      <h3 style="margin-top:0">🕹️ There are 3D replays, too</h3>
       <p class="muted" style="font-size:15px">Experiment 11 turns these same runs into a walkable Battleship board — attention edges, firing heads, the copy-2 board flipping red→green as the circuit ignites. Open them (from this repo):</p>
       <div class="row">
         <a class="btn" href="../11_induction_3d/viewer.html" target="_blank">induction viewer →</a>
         <a class="btn" href="../11_induction_3d/refusal.html" target="_blank">refusal viewer →</a>
         <a class="btn" href="../11_induction_3d/emergence.html" target="_blank">emergence viewer →</a>
       </div>
-      <p class="tag" style="margin-top:10px">(These open a separate page. If a viewer looks empty, it needs a captured <span class="mono">?tag=</span> — the README lists the ones you've captured.)</p>
+      <p class="tag" style="margin-top:10px">(These open a separate page. If a viewer looks empty, it needs a captured <span class="mono">?tag=</span> — the README lists the captured scenes.)</p>
     </div>
     <div class="panel">
-      <h3 style="margin-top:0">🧭 The next rung (from tonight's chat)</h3>
-      <p class="muted" style="font-size:15px">You've mastered <b>components</b> — heads, layers. The frontier is <b>features</b>: learned concepts as directions, found by <b>sparse autoencoders</b>. The refusal <i>direction</i> above was a hand-made preview of one.</p>
-      <p class="muted" style="font-size:15px">The proposed <span class="mono">14_sparse_autoencoder/</span>: train an SAE on your tiny exp-12 model, then build a viewer to watch <b>features light up</b> on real text — same move as induction heads, one level up.</p>
-      <div class="pill" style="margin-top:4px">sleep on it — tell me in the morning 🌅</div>
+      <h3 style="margin-top:0">🧭 Where this goes next</h3>
+      <p class="muted" style="font-size:15px">These experiments work at the level of <b>components</b> — heads and layers. The modern frontier is <b>features</b>: learned concepts as directions in activation space, found by <b>sparse autoencoders</b>. The refusal <i>direction</i> above was a hand-made preview of one.</p>
+      <p class="muted" style="font-size:15px">A natural next experiment: train an SAE on the tiny model from exp 12, then build a viewer to watch <b>features light up</b> on real text — the same move as induction heads, one level up.</p>
+      <div class="pill" style="margin-top:4px">features are the sequel to heads 🔍</div>
     </div>
   </div>
 
   <div class="footer">
-    Built for you to poke at, not to read. Nothing here was deleted or changed in your repo — this is a new
-    <span class="mono">00_start_here/</span> folder only. If a number here ever disagrees with a fresh run, trust the run —
-    charts here are frozen from your saved CSVs and <span class="mono">CLAUDE.md</span> results.
+    Built to be poked at, not read. Every number here is frozen from the repo's saved result files — if a fresh
+    run ever disagrees, trust the run. Want the full write-up? The
+    <a class="link" href="https://github.com/GeoNicol/mech-interp" target="_blank" rel="noopener">repository README</a>
+    walks through all 13 experiments in depth.
   </div>
 </section>
 
