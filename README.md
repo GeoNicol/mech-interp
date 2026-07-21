@@ -21,10 +21,13 @@ ablation, not just the off-distribution shock of zeroing.
 
 ## Start here — an interactive guide
 
+▶ **[Open the interactive guide live →](https://geonicol.github.io/mech-interp/00_start_here/)**
+&nbsp; *(runs in your browser — nothing to install)*
+
 New to mechanistic interpretability, or just want the intuition before the code?
-**[`00_start_here/index.html`](00_start_here/index.html)** is a self-contained, interactive
-walkthrough of every experiment below — no server, no build, no dependencies. Clone or
-download the repo and open the file in any browser.
+That link is a self-contained, interactive walkthrough of every experiment below — no server,
+no build, no dependencies. The source is [`00_start_here/index.html`](00_start_here/index.html);
+you can also just clone or download the repo and open that file in any browser.
 
 It's built to be *poked*, not read: drag a slider through the induction phase change on real
 Pythia-160m checkpoints, toggle zero / mean / patch ablation and watch the loss cliff refill,
