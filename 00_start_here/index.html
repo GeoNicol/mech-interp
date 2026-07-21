@@ -1,0 +1,1218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!--
+  mech-interp — Start Here
+  An interactive, ADHD-friendly guided tour of the 13 experiments in this repo.
+  100% self-contained. No server, no build, no internet. Just open this file.
+  Charts are drawn from this repo's own experiment result data.
+-->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Start Here — your mech-interp lab, explained</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20100%20100'%3E%3Ctext%20y='.9em'%20font-size='90'%3E🧠%3C/text%3E%3C/svg%3E">
+
+<style>
+:root{
+  --bg:#080b11; --bg2:#0b0f17; --panel:#0f1622; --panel2:#131c2b;
+  --line:#1c2735; --line2:#28374b;
+  --ink:#dfe7f2; --dim:#93a1b8; --faint:#5f6d82;
+  --sig:#3ad4ee;      /* induction / signal — cyan  */
+  --dmg:#ff6b6b;      /* damage / ablation — red     */
+  --up:#b794f6;       /* prev-token / upstream — purple */
+  --safe:#ffc65c;     /* refusal / safety — amber    */
+  --good:#54e6a6;     /* recovered / good — green    */
+  --sig-dim:#1c6b78; --dmg-dim:#7a3535;
+  --shadow:0 10px 40px rgba(0,0,0,.5);
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --sans:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0; background:
+    radial-gradient(1200px 700px at 80% -10%, #10203a55, transparent 60%),
+    radial-gradient(900px 600px at -10% 20%, #1a103a44, transparent 55%),
+    var(--bg);
+  color:var(--ink); font-family:var(--sans);
+  font-size:16px; line-height:1.6; -webkit-font-smoothing:antialiased;
+}
+@media (prefers-reduced-motion:reduce){ html{scroll-behavior:auto} *{animation-duration:.001s!important;transition-duration:.001s!important} }
+
+/* progress bar */
+#prog{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;
+  background:linear-gradient(90deg,var(--up),var(--sig));box-shadow:0 0 12px var(--sig)}
+
+/* layout */
+.wrap{display:grid;grid-template-columns:250px 1fr;gap:0;max-width:1400px;margin:0 auto}
+nav.side{position:sticky;top:0;height:100vh;overflow-y:auto;padding:26px 16px 40px;
+  border-right:1px solid var(--line);background:linear-gradient(180deg,#0b0f17,transparent)}
+nav .brand{font-weight:800;font-size:15px;letter-spacing:.5px;margin-bottom:2px}
+nav .brand .dot{color:var(--sig)}
+nav .sub{color:var(--faint);font-size:11.5px;font-family:var(--mono);margin-bottom:20px}
+nav a.navlink{display:flex;gap:9px;align-items:baseline;color:var(--dim);text-decoration:none;
+  font-size:13px;padding:6px 9px;border-radius:8px;border-left:2px solid transparent;transition:.15s}
+nav a.navlink .n{font-family:var(--mono);font-size:11px;color:var(--faint);min-width:20px}
+nav a.navlink:hover{background:#ffffff08;color:var(--ink)}
+nav a.navlink.active{background:#3ad4ee12;color:var(--ink);border-left-color:var(--sig)}
+nav a.navlink.active .n{color:var(--sig)}
+main{padding:0 clamp(16px,4vw,60px) 120px;min-width:0}
+
+/* mobile */
+.menutoggle{display:none}
+@media (max-width:880px){
+  .wrap{grid-template-columns:1fr}
+  nav.side{position:fixed;inset:0 auto 0 0;width:250px;transform:translateX(-102%);z-index:50;
+    transition:transform .25s;box-shadow:var(--shadow);background:var(--bg2)}
+  nav.side.open{transform:none}
+  .menutoggle{display:flex;position:fixed;top:12px;left:12px;z-index:55;background:var(--panel2);
+    border:1px solid var(--line2);color:var(--ink);border-radius:10px;width:44px;height:44px;
+    align-items:center;justify-content:center;font-size:20px;cursor:pointer}
+  main{padding-top:64px}
+}
+
+section{padding:54px 0;border-bottom:1px solid var(--line);scroll-margin-top:20px}
+section:last-child{border-bottom:none}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:1.5px;text-transform:uppercase;color:var(--faint);display:flex;gap:10px;align-items:center}
+.chip{display:inline-block;font-family:var(--mono);font-size:11px;padding:2px 9px;border-radius:20px;border:1px solid;letter-spacing:.5px}
+.chip.exp{border-color:var(--line2);color:var(--dim)}
+h1{font-size:clamp(30px,5vw,52px);line-height:1.05;margin:.3em 0 .2em;letter-spacing:-1px;font-weight:800}
+h2{font-size:clamp(24px,3.4vw,36px);line-height:1.1;margin:.25em 0 .35em;letter-spacing:-.5px;font-weight:800}
+h3{font-size:19px;margin:1.4em 0 .3em;font-weight:700}
+.lead{font-size:clamp(17px,2vw,20px);color:var(--dim);max-width:60ch}
+p{max-width:66ch}
+.idea{font-size:18px;max-width:62ch;border-left:3px solid var(--sig);padding:2px 0 2px 16px;margin:18px 0;color:var(--ink)}
+.idea b{color:#fff}
+.muted{color:var(--dim)} .faint{color:var(--faint)} .mono{font-family:var(--mono)}
+b.sig{color:var(--sig)} b.dmg{color:var(--dmg)} b.up{color:var(--up)} b.safe{color:var(--safe)} b.good{color:var(--good)}
+a.link{color:var(--sig);text-decoration:none;border-bottom:1px dotted var(--sig-dim)}
+a.link:hover{border-bottom-style:solid}
+
+/* cards / panels */
+.panel{background:linear-gradient(180deg,var(--panel),#0c1119);border:1px solid var(--line);
+  border-radius:16px;padding:22px;box-shadow:var(--shadow)}
+.panel.pad0{padding:0;overflow:hidden}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+@media (max-width:760px){.grid2,.grid3{grid-template-columns:1fr}}
+
+/* buttons / toggles */
+.btn{font-family:var(--mono);font-size:13px;color:var(--ink);background:var(--panel2);
+  border:1px solid var(--line2);border-radius:10px;padding:9px 14px;cursor:pointer;transition:.15s}
+.btn:hover{border-color:var(--sig);color:#fff}
+.btn.on{background:#3ad4ee1a;border-color:var(--sig);color:#fff;box-shadow:0 0 0 1px var(--sig-dim) inset}
+.btn.dmg.on{background:#ff6b6b1a;border-color:var(--dmg);box-shadow:0 0 0 1px var(--dmg-dim) inset}
+.seg{display:inline-flex;gap:4px;background:#0a0e15;border:1px solid var(--line);border-radius:12px;padding:4px;flex-wrap:wrap}
+.seg .btn{border:none;background:transparent;padding:7px 12px}
+.seg .btn.on{background:#ffffff10}
+.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+input[type=range]{-webkit-appearance:none;appearance:none;height:6px;border-radius:6px;
+  background:linear-gradient(90deg,var(--sig),var(--up));outline:none;cursor:pointer}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;
+  background:#fff;border:3px solid var(--sig);box-shadow:0 2px 8px #000a;cursor:pointer}
+input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:#fff;border:3px solid var(--sig);cursor:pointer}
+
+/* big number readouts */
+.readout{font-family:var(--mono);font-weight:700;font-variant-numeric:tabular-nums}
+.big{font-size:clamp(34px,6vw,60px);line-height:1;letter-spacing:-1px}
+.stat{background:#0a0e15;border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.stat .k{font-family:var(--mono);font-size:11px;letter-spacing:.5px;color:var(--faint);text-transform:uppercase}
+.stat .v{font-family:var(--mono);font-weight:700;font-size:26px;line-height:1.2;font-variant-numeric:tabular-nums}
+
+/* details */
+details{border:1px solid var(--line);border-radius:12px;background:#0a0e15;margin-top:14px}
+details>summary{cursor:pointer;padding:12px 16px;font-family:var(--mono);font-size:13px;color:var(--sig);list-style:none;display:flex;gap:8px;align-items:center}
+details>summary::-webkit-details-marker{display:none}
+details>summary::before{content:"▸";transition:.2s;color:var(--faint)}
+details[open]>summary::before{transform:rotate(90deg)}
+details .body{padding:0 16px 16px;color:var(--dim);font-size:14.5px}
+details .body p{max-width:70ch}
+
+/* token strip */
+.tokstrip{display:flex;flex-wrap:wrap;gap:3px;font-family:var(--mono);font-size:11px}
+.tok{width:22px;height:26px;border-radius:4px;display:flex;align-items:center;justify-content:center;
+  color:#0a0e15;font-weight:700;user-select:none;position:relative;transition:.12s}
+.tok.bos{background:#3a4658;color:var(--dim)}
+.tok.playhead{outline:2px solid #fff;outline-offset:1px;z-index:2;transform:translateY(-2px)}
+
+svg{display:block;width:100%;height:auto;overflow:visible}
+.axislbl{font-family:var(--mono);font-size:11px;fill:var(--faint)}
+.gridline{stroke:var(--line);stroke-width:1}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-family:var(--mono);font-size:12px;color:var(--dim)}
+.legend span{display:inline-flex;gap:6px;align-items:center}
+.swatch{width:12px;height:3px;border-radius:2px;display:inline-block}
+.dotsw{width:9px;height:9px;border-radius:50%;display:inline-block}
+
+.callout{border-radius:12px;padding:14px 16px;font-size:14.5px;border:1px solid}
+.callout.aha{background:#54e6a610;border-color:#2e6b52;color:#cdeede}
+.callout.aha b{color:var(--good)}
+.callout.warn{background:#ffc65c10;border-color:#6b5a2e;color:#efe2c3}
+.callout.warn b{color:var(--safe)}
+
+.pill{display:inline-flex;gap:7px;align-items:center;font-family:var(--mono);font-size:12px;
+  background:#0a0e15;border:1px solid var(--line2);border-radius:20px;padding:5px 11px;color:var(--dim)}
+.reveal{opacity:0;transform:translateY(14px);transition:opacity .6s,transform .6s}
+.reveal.in{opacity:1;transform:none}
+kbd{font-family:var(--mono);font-size:11px;background:#0a0e15;border:1px solid var(--line2);border-bottom-width:2px;border-radius:5px;padding:1px 6px;color:var(--dim)}
+
+/* hero map */
+.map{position:relative;margin:26px 0 8px}
+.mapnode{cursor:pointer;transition:.15s}
+.mapnode:hover circle{stroke:#fff}
+.mapnode text{font-family:var(--mono);font-size:10px;fill:var(--dim)}
+.mapnode:hover text{fill:#fff}
+.footer{color:var(--faint);font-size:13px;padding:40px 0 10px;max-width:70ch}
+.tag{font-family:var(--mono);font-size:11px;color:var(--faint)}
+.hl{background:linear-gradient(180deg,transparent 60%,#3ad4ee30 60%)}
+</style>
+</head>
+<body>
+
+<div id="prog"></div>
+<button class="menutoggle" aria-label="menu" onclick="document.querySelector('nav.side').classList.toggle('open')">☰</button>
+
+<div class="wrap">
+<nav class="side">
+  <div class="brand"><span class="dot">◆</span> mech-interp</div>
+  <div class="sub">start here · interactive</div>
+  <a class="navlink" href="#top"><span class="n">00</span> The map</a>
+  <a class="navlink" href="#setup"><span class="n">01</span> The trick that starts it all</a>
+  <a class="navlink" href="#cliff"><span class="n">02</span> The cliff (& breaking it)</a>
+  <a class="navlink" href="#head"><span class="n">03</span> What a head actually does</a>
+  <a class="navlink" href="#specific"><span class="n">04</span> Is it real? (the control)</a>
+  <a class="navlink" href="#ablate"><span class="n">05</span> Zero · mean · patch</a>
+  <a class="navlink" href="#compose"><span class="n">06</span> The circuit has 2 halves</a>
+  <a class="navlink" href="#hydra"><span class="n">07</span> The Hydra (backup heads)</a>
+  <a class="navlink" href="#emerge"><span class="n">08</span> Where circuits are born</a>
+  <a class="navlink" href="#dose"><span class="n">09</span> Grow one yourself</a>
+  <a class="navlink" href="#refusal"><span class="n">10</span> Beyond induction: refusal</a>
+  <a class="navlink" href="#unlearn"><span class="n">11</span> Does "unlearning" erase?</a>
+  <a class="navlink" href="#next"><span class="n">12</span> What you built · what's next</a>
+  <div style="margin-top:22px;border-top:1px solid var(--line);padding-top:14px">
+    <a class="navlink" href="#glossary"><span class="n">🔤</span> Words that tripped me up</a>
+  </div>
+</nav>
+
+<main>
+
+<!-- ============ HERO / MAP ============ -->
+<section id="top" style="border-bottom:none;padding-top:40px">
+  <div class="eyebrow">a guided tour of your own lab</div>
+  <h1>You built 13 experiments.<br>Here's what they <span style="color:var(--sig)">mean</span>.</h1>
+  <p class="lead">We moved fast. This page is the slow, visual version — no walls of text, everything is a thing you poke. Jump around in any order. Each toy stands on its own.</p>
+
+  <div class="row" style="margin:18px 0 4px">
+    <span class="pill">🖱️ hover & drag things</span>
+    <span class="pill">🔓 "go deeper" only when you want it</span>
+    <span class="pill">📊 charts use <b style="color:var(--sig)">&nbsp;your real data</b></span>
+    <span class="pill">🧭 click the map ↓</span>
+  </div>
+
+  <div class="panel map" style="margin-top:22px">
+    <div class="eyebrow" style="margin-bottom:6px">the story arc — click any stop</div>
+    <svg id="storymap" viewBox="0 0 1000 210" role="img" aria-label="story map"></svg>
+  </div>
+
+  <div class="callout aha" style="margin-top:18px">
+    <b>The one idea under all of it:</b> a language model isn't a black box of magic — it's made of small
+    reusable <b>circuits</b> you can find, watch, and switch off. Experiment 01 finds one. Everything else
+    pokes at it, proves it's real, watches it being born, and then asks the same questions about <i>safety</i>.
+  </div>
+</section>
+
+<!-- ============ 01 SETUP ============ -->
+<section id="setup">
+  <div class="eyebrow"><span class="chip exp">exp 01</span> the setup</div>
+  <h2>A trick that forces the model to <span style="color:var(--sig)">copy</span></h2>
+  <p class="idea">Feed the model a list of <b>random</b> tokens — then the <b>exact same list again</b>. The second time, the only way to predict what's next is to <b>look back and copy</b>. That's the whole experiment.</p>
+
+  <div class="panel">
+    <div class="row" style="justify-content:space-between">
+      <div class="eyebrow" style="margin:0">the stimulus · <span class="mono" style="color:var(--dim)">[BOS] r0…r49 r0…r49</span></div>
+      <button class="btn" id="playSeq">▶ play the read-through</button>
+    </div>
+    <div style="margin:18px 0 6px" class="tokstrip" id="seqStrip"></div>
+    <div class="row" style="justify-content:space-between;margin-top:8px">
+      <div class="tag">← copy 1 &nbsp;·&nbsp; the model is <b class="dmg">guessing</b> (never seen these)</div>
+      <div class="tag">copy 2 &nbsp;·&nbsp; it can now <b class="good">remember</b> →</div>
+    </div>
+    <div class="panel" style="background:#0a0e15;margin-top:16px;padding:14px 16px">
+      <div class="row" style="gap:18px">
+        <div><div class="tag">position</div><div class="readout" style="font-size:22px" id="seqPos">—</div></div>
+        <div><div class="tag">this token</div><div class="readout" style="font-size:22px;color:var(--sig)" id="seqTok">—</div></div>
+        <div style="flex:1;min-width:180px"><div class="tag" id="seqRoleLbl">what can the model do here?</div><div class="readout" style="font-size:16px" id="seqRole">hover / play the strip above</div></div>
+      </div>
+    </div>
+  </div>
+
+  <details><summary>go deeper — why <i>random</i> tokens?</summary>
+    <div class="body">
+      <p>Random tokens have <b>no pattern to learn from grammar or facts</b>. "Paris is the capital of ___" you can finish from knowledge. But <code>x7 q2 ∆ 9k …</code> repeated? The <i>only</i> signal is the repetition itself. So if the model nails copy 2, that ability can't be memorized trivia — it must be <b>in-context</b> learning: reading the prompt and copying. That's why this stimulus is the classic probe for the <b>induction</b> circuit.</p>
+      <p class="faint">In the code: <span class="mono">torch.manual_seed(0)</span> draws the random tokens, a <span class="mono">BOS</span> token is prepended, and the sequence is <span class="mono">SEQ=50</span> long, twice.</p>
+    </div>
+  </details>
+</section>
+
+<!-- ============ 02 CLIFF ============ -->
+<section id="cliff">
+  <div class="eyebrow"><span class="chip exp">exp 01</span> the measurement · the proof</div>
+  <h2>The <span style="color:var(--sig)">cliff</span> — and switching it off</h2>
+  <p class="idea">Plot how <b>surprised</b> the model is at every position. High = surprised. Watch it fall off a cliff the moment copy 2 begins. Then hit <b>ablate</b> and watch the cliff <b class="dmg">refill</b>.</p>
+
+  <div class="panel">
+    <div class="row" style="justify-content:space-between;margin-bottom:6px">
+      <div class="legend">
+        <span><span class="swatch" style="background:var(--sig)"></span> loss per token (surprise)</span>
+        <span class="faint">lower = better prediction</span>
+      </div>
+      <button class="btn dmg" id="ablBtn">✂ ablate the induction heads</button>
+    </div>
+    <svg id="cliffSvg" viewBox="0 0 900 340" role="img" aria-label="loss per position"></svg>
+    <div class="grid3" style="margin-top:14px">
+      <div class="stat"><div class="k">copy-1 surprise</div><div class="v" id="c1" style="color:var(--dmg)">—</div></div>
+      <div class="stat"><div class="k">copy-2 surprise</div><div class="v" id="c2" style="color:var(--sig)">—</div></div>
+      <div class="stat"><div class="k">the cliff (drop)</div><div class="v" id="cdrop" style="color:var(--good)">—</div></div>
+    </div>
+  </div>
+
+  <div class="callout aha" id="cliffMsg" style="margin-top:16px">
+    <b>This is in-context learning you can see.</b> Copy 1 stays high (nothing to copy yet). Copy 2 plunges — the model found the pattern in its own prompt. The very first copy-2 token is still a guess (nothing precedes it to copy), which is why the cliff starts <i>one token in</i>.
+  </div>
+
+  <details><summary>go deeper — what does "ablate" actually do?</summary>
+    <div class="body">
+      <p>A handful of attention heads do the copying. <b>Ablate</b> = reach in during the forward pass and <b>delete just those heads' output</b> (set it to zero), leaving everything else untouched. If the cliff refills, those heads <i>caused</i> the behaviour — this is a <b>causal</b> test, not a correlation. On gpt2 the copy-2 surprise jumps <b class="dmg">36×</b> when you do this.</p>
+      <p class="faint">In the code: a forward hook on <span class="mono">blocks.{L}.attn.hook_z</span> zeroes the chosen heads' slice. Chart is <span class="mono">induction_3_ablation_*.png</span>.</p>
+    </div>
+  </details>
+</section>
+
+<!-- ============ 03 WHAT A HEAD DOES ============ -->
+<section id="head">
+  <div class="eyebrow"><span class="chip exp">exp 01</span> the mechanism</div>
+  <h2>What an <span style="color:var(--sig)">induction head</span> actually does</h2>
+  <p class="idea">An attention head lets each token "look back" at earlier tokens. An induction head has one specific habit: <b>find where this token appeared before, then look at whatever came right after it.</b> Hover the boards to see it.</p>
+
+  <div class="panel">
+    <div class="eyebrow" style="margin-bottom:12px">hover any token in copy 2 → watch the head point back</div>
+    <div id="headDemo"></div>
+    <div class="callout aha" id="headMsg" style="margin-top:14px">Hover a highlighted token to see the induction move: <b>“I've seen you before — so I bet what came next then comes next now.”</b></div>
+  </div>
+
+  <details><summary>go deeper — so what's the "induction score" in the heatmaps?</summary>
+    <div class="body">
+      <p>Every head gets one number: how strongly its attention lands on that <b>look-back-and-shift</b> diagonal, averaged over the sequence. High score = "this head is an induction head." Plot the score for every (layer, head) and you get <span class="mono">induction_2_heatmap_*.png</span> — the dots are the heads above threshold (0.3). gpt2 has a couple; Qwen3.5-4B stacks <b>34</b> of them.</p>
+      <p class="faint">Formally it's the attention on the stripe at offset <span class="mono">-(SEQ-1)</span> — from each token back to the one that <i>followed its previous occurrence</i>.</p>
+    </div>
+  </details>
+</section>
+
+<!-- ============ 04 SPECIFICITY ============ -->
+<section id="specific">
+  <div class="eyebrow"><span class="chip exp">exp 02</span> the control</div>
+  <h2>"But maybe <span style="color:var(--dmg)">any</span> heads matter?"</h2>
+  <p class="idea">Fair challenge. So: ablate the <b>same number</b> of <b>randomly chosen</b> heads instead, 10 times. If random ablations barely hurt while the induction heads devastate — the damage is <b>specific to the circuit</b>, not to losing some heads.</p>
+
+  <div class="panel">
+    <div class="row" style="justify-content:space-between">
+      <div class="eyebrow" style="margin:0">pick a model — how far above "random damage" do the induction heads sit?</div>
+    </div>
+    <div class="seg" id="sigModel" style="margin:12px 0"></div>
+    <svg id="sigSvg" viewBox="0 0 900 260" role="img" aria-label="specificity"></svg>
+    <div class="callout aha" style="margin-top:12px" id="sigMsg"></div>
+  </div>
+  <details><summary>go deeper — what's a "σ" (sigma)?</summary>
+    <div class="body"><p>σ (standard deviation) measures the spread of the 10 random trials. Saying induction ablation is "<b>102σ</b> above the random mean" (Pythia-1.4B) means: on the bell curve of random damage, the induction result isn't just a bit worse — it's absurdly, off-the-chart worse. Astronomically unlikely to be a coincidence. That's how you turn "it looks important" into a number.</p></div>
+  </details>
+</section>
+
+<!-- ============ 05 THREE ABLATIONS ============ -->
+<section id="ablate">
+  <div class="eyebrow"><span class="chip exp">exp 06 · 13</span> the honest way to break things</div>
+  <h2>Three ways to switch a head off</h2>
+  <p class="idea">"Delete its output" sounds simple, but <b>what do you replace it with?</b> Zeros? Its average? A value from a control run? Each is more <b>faithful</b> than the last — and your experiments show the choice changes the answer.</p>
+
+  <div class="grid3" id="ablCards"></div>
+
+  <div class="panel" style="margin-top:16px">
+    <div class="eyebrow" style="margin-bottom:10px">same circuit, three methods → how much damage? (copy-2 surprise ×, your exp-13 numbers)</div>
+    <div class="seg" id="ablModel" style="margin-bottom:12px"></div>
+    <svg id="ablSvg" viewBox="0 0 900 220" role="img" aria-label="ablation comparison"></svg>
+    <div class="callout warn" style="margin-top:12px" id="ablMsg"></div>
+  </div>
+
+  <details><summary>go deeper — the "faithfulness ladder"</summary>
+    <div class="body">
+      <p><b class="dmg">Zero</b> is off-distribution — the model never saw an all-zero activation in training, so it overreacts (overstates damage ~1.5× on gpt2/Pythia). <b class="safe">Mean</b> keeps a realistic size but strips the input-specific info. <b class="good">Patch</b> substitutes a genuine activation from a matched "corrupt" run (same copy 1, fresh non-repeating copy 2) — zero distribution shock, the gold standard. The big finding: patch and zero <b>agree on which backup heads exist</b>, but the damage <i>ranking</i> is model-dependent — there's no universal "zero &gt; patch &gt; mean".</p>
+    </div>
+  </details>
+</section>
+
+<!-- ============ 06 COMPOSITION ============ -->
+<section id="compose">
+  <div class="eyebrow"><span class="chip exp">exp 03 · 04</span> composition</div>
+  <h2>The circuit has <span style="color:var(--up)">two halves</span></h2>
+  <p class="idea">The induction head can only copy "what came after last time" if some <b>earlier</b> head already tagged each token with <b>who came before it</b>. That upstream helper is the <b class="up">previous-token head</b>. Cut it, and the induction head goes blind — <b>without touching the induction head at all.</b></p>
+
+  <div class="panel">
+    <svg id="compSvg" viewBox="0 0 900 300" role="img" aria-label="two-head circuit"></svg>
+    <div class="row" style="justify-content:center;margin-top:6px">
+      <button class="btn dmg" id="compBtn">✂ cut the previous-token heads</button>
+    </div>
+    <div class="grid3" style="margin-top:14px">
+      <div class="stat"><div class="k">induction score</div><div class="v" id="compScore" style="color:var(--sig)">0.65</div></div>
+      <div class="stat"><div class="k">copy-2 surprise</div><div class="v" id="compLoss" style="color:var(--good)">low</div></div>
+      <div class="stat"><div class="k">we touched the induction heads?</div><div class="v" style="color:var(--up)">no</div></div>
+    </div>
+  </div>
+  <div class="callout aha" style="margin-top:14px" id="compMsg"><b>Composition:</b> the behaviour isn't in one head — it's two heads talking across layers. Break the conversation upstream and the downstream head has nothing to say.</div>
+
+  <details><summary>go deeper — the "just-in-time shift register" (exp 04)</summary>
+    <div class="body"><p>In the hybrid Qwen3.5 models there were <i>no</i> previous-token heads in the normal attention layers — the upstream signal was hiding in the model's <b>linear-attention</b> layers, which act like local shift-registers feeding the induction layers just in time. Experiment 04 (layer knockout) traced exactly which layers by knocking out one at a time and watching the induction score dip. Same detective move, different suspect.</p></div>
+  </details>
+</section>
+
+<!-- ============ 07 HYDRA ============ -->
+<section id="hydra">
+  <div class="eyebrow"><span class="chip exp">exp 05 · 13</span> redundancy · self-repair</div>
+  <h2>The <span style="color:var(--dmg)">Hydra</span>: cut a head, a backup wakes up</h2>
+  <p class="idea">Ablate the main induction heads and re-score every <i>remaining</i> head <b>inside the broken model</b>. In some models, heads that looked useless suddenly step up to do the job — <b>backups</b> that were invisible until needed. Cut one head, two grow back.</p>
+
+  <div class="panel">
+    <div class="eyebrow" style="margin-bottom:10px">round-by-round: ablate → look for new volunteers → repeat</div>
+    <div class="seg" id="hydraModel" style="margin-bottom:14px"></div>
+    <div id="hydraStage"></div>
+    <div class="callout aha" style="margin-top:12px" id="hydraMsg"></div>
+  </div>
+
+  <details><summary>go deeper — is the Hydra real, or a zeroing artifact? (exp 13)</summary>
+    <div class="body"><p>Great skeptical question — and you tested it. If backups only "appear" because zero-ablation shocks the model off-distribution, they'd vanish under faithful <b>patching</b>. They didn't: on Qwen3-1.7B, patch recruits the <b>same</b> backups as zero (L21H9, L18H4, L8H5). So the self-repair is a genuine property of the network, not a measurement artifact. The other models recruit nobody — their robustness (where it exists) is spread thin below any threshold, not concentrated in hidden backups.</p></div>
+  </details>
+</section>
+
+<!-- ============ 08 EMERGENCE ============ -->
+<section id="emerge">
+  <div class="eyebrow"><span class="chip exp">exp 07</span> emergence · real data</div>
+  <h2>Watch the circuit be <span style="color:var(--good)">born</span></h2>
+  <p class="idea">Circuits aren't there at the start — they <b>snap into existence</b> during training. Drag through 14 real Pythia-160m checkpoints and watch the induction score sit near zero… then <b>ignite</b> between steps 512 and 1000.</p>
+
+  <div class="panel">
+    <svg id="emSvg" viewBox="0 0 900 360" role="img" aria-label="emergence phase change"></svg>
+    <div class="row" style="gap:16px;margin:6px 4px 0">
+      <span class="tag">training step</span>
+      <input type="range" id="emSlider" min="0" max="13" value="0" step="1" style="flex:1;min-width:180px">
+      <button class="btn" id="emPlay">▶ auto-play</button>
+    </div>
+    <div class="grid3" style="margin-top:14px">
+      <div class="stat"><div class="k">step</div><div class="v" id="emStep" style="color:var(--ink)">0</div></div>
+      <div class="stat"><div class="k">induction score</div><div class="v" id="emScore" style="color:var(--sig)">0.02</div></div>
+      <div class="stat"><div class="k">copy-2 surprise</div><div class="v" id="emLoss" style="color:var(--good)">11.1</div></div>
+    </div>
+  </div>
+  <div class="callout aha" style="margin-top:14px" id="emMsg"></div>
+  <details><summary>go deeper — the built-in control</summary>
+    <div class="body"><p>See the flat grey line? That's copy-<b>1</b> surprise — the un-copyable half. It stays pinned at ~13 the entire run. If the drop were just "the model getting generally better," copy-1 would fall too. It doesn't. Only the <i>copyable</i> half improves, and only after the circuit ignites. That flat line is the control that makes the story airtight.</p></div>
+  </details>
+</section>
+
+<!-- ============ 09 DOSE-RESPONSE ============ -->
+<section id="dose">
+  <div class="eyebrow"><span class="chip exp">exp 12</span> you trained these · real data</div>
+  <h2>Grow one yourself — the <span style="color:var(--safe)">data</span> decides</h2>
+  <p class="idea">You trained a tiny model from scratch, three times, changing only the <b>data mix</b>. Story-only data <b>never</b> grows the circuit. Add the right pressure and it <b>ignites</b> in a single 8-million-token window. The recipe matters, not just the size.</p>
+
+  <div class="panel">
+    <div class="eyebrow" style="margin-bottom:10px">induction score over training — click a recipe to toggle it</div>
+    <div class="row" id="doseToggles" style="margin-bottom:10px"></div>
+    <svg id="doseSvg" viewBox="0 0 900 320" role="img" aria-label="dose response"></svg>
+  </div>
+  <div class="callout aha" style="margin-top:14px">
+    <b>The whole circuit was two heads.</b> Your ignited model's induction lived in exactly <b class="sig">L3H0 + L3H1</b>, fed by prev-token heads <b class="up">L2H1 / L2H7</b> one layer up. Zero just that pair → copy-2 surprise rockets from <b>0.72 back to 10.95</b>. Textbook-minimal, and you built it.
+  </div>
+  <details><summary>go deeper — why doesn't TinyStories alone work?</summary>
+    <div class="body"><p>Interesting split: the <b class="up">upstream</b> half (prev-token heads) forms for free on almost any text — it reached 0.57 even on stories alone. But <b class="sig">composition</b> — wiring that upstream signal into a copying circuit — only happens when the data <i>rewards</i> copying. The synthetic repeated-block rows are that reward: the only way to predict them is to copy. 85% real text + 15% synthetic was enough to ignite; 30% wikitext with no synthetic stalled at 0.065 after 445M tokens. The circuit needs a <i>reason</i> to exist.</p></div>
+  </details>
+</section>
+
+<!-- ============ 10 REFUSAL ============ -->
+<section id="refusal">
+  <div class="eyebrow"><span class="chip exp">exp 08</span> the safety pivot</div>
+  <h2>Same tools, new question: <span style="color:var(--safe)">refusal</span></h2>
+  <p class="idea">A chat model's decision to <b>refuse</b> turns out to live along a single <b>direction</b> in its activations. Slide it: remove the direction and a harmful prompt gets <b class="dmg">answered</b>; add it and a harmless prompt gets <b class="safe">refused</b>. A clean double-dissociation.</p>
+
+  <div class="panel">
+    <div class="row" style="gap:20px;align-items:stretch">
+      <div style="flex:1;min-width:220px">
+        <div class="eyebrow" style="margin-bottom:8px">the refusal dial</div>
+        <div class="row"><span class="tag">remove ◄</span><input type="range" id="refSlider" min="-100" max="100" value="0" style="flex:1"><span class="tag">► add</span></div>
+        <div class="readout" style="text-align:center;font-size:15px;margin-top:8px;color:var(--dim)" id="refState">clean model (no intervention)</div>
+      </div>
+    </div>
+    <div class="grid2" style="margin-top:18px">
+      <div class="panel" style="background:#0a0e15">
+        <div class="row" style="justify-content:space-between"><b class="dmg">Harmful prompts</b><span class="tag">should refuse</span></div>
+        <div id="refHarmBar"></div>
+        <div class="readout big" id="refHarm" style="color:var(--dmg);text-align:center">100%</div>
+        <div class="tag" style="text-align:center">refusal rate</div>
+      </div>
+      <div class="panel" style="background:#0a0e15">
+        <div class="row" style="justify-content:space-between"><b class="good">Harmless prompts</b><span class="tag">should answer</span></div>
+        <div id="refSafeBar"></div>
+        <div class="readout big" id="refSafe" style="color:var(--safe);text-align:center">0%</div>
+        <div class="tag" style="text-align:center">refusal rate</div>
+      </div>
+    </div>
+  </div>
+  <div class="callout aha" style="margin-top:14px" id="refMsg"><b>Necessary and sufficient.</b> Remove the direction → refusal collapses (it was needed). Add it → refusal appears on safe prompts (it's enough on its own). The same "find it / break it / prove it" recipe from induction heads, pointed at a safety behaviour.</div>
+  <details><summary>go deeper — how do you "find a direction"?</summary>
+    <div class="body"><p>Run a batch of <b>harmful</b> prompts and a batch of <b>harmless</b> ones. Average each group's residual-stream activation at the last token, and subtract. That difference vector <i>is</i> the refusal direction (pick the layer where the two groups separate best — here layer 21 of Qwen2.5-1.5B). Then "remove it" = project it out of every layer; "add it" = add it in. Directions are the feature-level cousin of heads — and they're exactly where mech-interp is heading next (sparse autoencoders find thousands of them).</p></div>
+  </details>
+</section>
+
+<!-- ============ 11 UNLEARNING ============ -->
+<section id="unlearn">
+  <div class="eyebrow"><span class="chip exp">exp 09 · 10</span> alignment-relevant · real data</div>
+  <h2>Does "<span style="color:var(--dmg)">unlearning</span>" really erase knowledge?</h2>
+  <p class="idea">Companies "unlearn" facts from models for safety. But did the knowledge <b>leave</b>, or just get <b>hidden</b>? You measured five checkpoints two different ways — and the answer <b>flips depending on how you ask.</b></p>
+
+  <div class="panel">
+    <div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:10px">
+      <div>
+        <div class="tag">unlearning method (checkpoint)</div>
+        <div class="seg" id="ulModel" style="margin-top:6px"></div>
+      </div>
+      <div>
+        <div class="tag">how we ask the question</div>
+        <div class="seg" id="ulMetric" style="margin-top:6px"></div>
+      </div>
+    </div>
+
+    <div class="grid2" style="margin-top:18px;align-items:center">
+      <div>
+        <svg id="ulSvg" viewBox="0 0 420 300" role="img" aria-label="unlearning gauge"></svg>
+      </div>
+      <div>
+        <div class="stat" style="margin-bottom:10px"><div class="k" id="ulBaseK">baseline recall</div><div class="v readout" id="ulBase">—</div></div>
+        <div class="stat"><div class="k">after ablating the refusal direction</div><div class="v readout" id="ulAbl">—</div></div>
+        <div class="tag" style="margin-top:10px">floor = <b class="good">retain90</b> (never learned it) · ceiling = <b class="sig">full</b> (learned it normally)</div>
+      </div>
+    </div>
+    <div class="callout warn" style="margin-top:14px" id="ulMsg"></div>
+  </div>
+  <details><summary>go deeper — why this matters for alignment</summary>
+    <div class="body"><p>"We unlearned it" is a <b>safety claim</b>, and this shows a safety claim can be an artifact of the metric. NPO looks fully forgotten if you read the model's greedy answer — but the ground-truth answer's <i>probability</i> is only <b>suppressed</b>, and one intervention (ablating the refusal direction) lifts it 4× back above the floor. GradDiff genuinely forgot; RMU barely forgot on Q&A at all. Same word — "unlearned" — three different realities. Building the tools and evals that catch this is a real contribution to safe, trustworthy AI. It's the direction we talked about tonight.</p></div>
+  </details>
+</section>
+
+<!-- ============ 12 NEXT ============ -->
+<section id="next">
+  <div class="eyebrow">where you are · where to go</div>
+  <h2>You already speak this language</h2>
+  <p class="lead">Every experiment above is one move repeated: <b class="sig">find</b> a behaviour → <b class="dmg">break</b> it on purpose → <b class="good">prove</b> the break was causal → <b>control</b> for the boring explanations. You've done it for copying, for composition, for training-time birth, and for two safety behaviours.</p>
+
+  <div class="grid2" style="margin-top:10px">
+    <div class="panel">
+      <h3 style="margin-top:0">🕹️ You also built 3D replays</h3>
+      <p class="muted" style="font-size:15px">Experiment 11 turns these same runs into a walkable Battleship board — attention edges, firing heads, the copy-2 board flipping red→green as the circuit ignites. Open them (from this repo):</p>
+      <div class="row">
+        <a class="btn" href="../11_induction_3d/viewer.html" target="_blank">induction viewer →</a>
+        <a class="btn" href="../11_induction_3d/refusal.html" target="_blank">refusal viewer →</a>
+        <a class="btn" href="../11_induction_3d/emergence.html" target="_blank">emergence viewer →</a>
+      </div>
+      <p class="tag" style="margin-top:10px">(These open a separate page. If a viewer looks empty, it needs a captured <span class="mono">?tag=</span> — the README lists the ones you've captured.)</p>
+    </div>
+    <div class="panel">
+      <h3 style="margin-top:0">🧭 The next rung (from tonight's chat)</h3>
+      <p class="muted" style="font-size:15px">You've mastered <b>components</b> — heads, layers. The frontier is <b>features</b>: learned concepts as directions, found by <b>sparse autoencoders</b>. The refusal <i>direction</i> above was a hand-made preview of one.</p>
+      <p class="muted" style="font-size:15px">The proposed <span class="mono">14_sparse_autoencoder/</span>: train an SAE on your tiny exp-12 model, then build a viewer to watch <b>features light up</b> on real text — same move as induction heads, one level up.</p>
+      <div class="pill" style="margin-top:4px">sleep on it — tell me in the morning 🌅</div>
+    </div>
+  </div>
+
+  <div class="footer">
+    Built for you to poke at, not to read. Nothing here was deleted or changed in your repo — this is a new
+    <span class="mono">00_start_here/</span> folder only. If a number here ever disagrees with a fresh run, trust the run —
+    charts here are frozen from your saved CSVs and <span class="mono">CLAUDE.md</span> results.
+  </div>
+</section>
+
+<!-- ============ GLOSSARY ============ -->
+<section id="glossary">
+  <div class="eyebrow">🔤 reference · open only if a word bites you</div>
+  <h2>Words that tripped me up</h2>
+  <div class="grid2" id="glossaryGrid"></div>
+</section>
+
+</main>
+</div>
+
+<script>
+"use strict";
+/* ---------- tiny helpers ---------- */
+const NS="http://www.w3.org/2000/svg";
+const $=(s,r=document)=>r.querySelector(s);
+const $$=(s,r=document)=>[...r.querySelectorAll(s)];
+const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+const lerp=(a,b,t)=>a+(b-a)*t;
+const RM=window.matchMedia&&matchMedia("(prefers-reduced-motion:reduce)").matches;
+function E(tag,attrs={},kids=[]){const e=document.createElementNS(NS,tag);
+  for(const k in attrs)e.setAttribute(k,attrs[k]); (Array.isArray(kids)?kids:[kids]).forEach(c=>c&&e.appendChild(c)); return e;}
+function H(tag,attrs={},html){const e=document.createElement(tag);
+  for(const k in attrs){if(k==="class")e.className=attrs[k];else if(k==="style")e.style.cssText=attrs[k];else e.setAttribute(k,attrs[k]);}
+  if(html!=null)e.innerHTML=html; return e;}
+function scaleLin(d0,d1,r0,r1){return x=>r0+(r1-r0)*((x-d0)/(d1-d0||1));}
+function scaleLog(d0,d1,r0,r1){const l0=Math.log10(Math.max(d0,1)),l1=Math.log10(d1);
+  return x=>r0+(r1-r0)*((Math.log10(Math.max(x,1))-l0)/(l1-l0||1));}
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;}}
+function animNum(el,to,{dur=900,dp=2,suf="",pre=""}={}){
+  const from=parseFloat(el.dataset.v||"0")||0; el.dataset.v=to;
+  if(RM){el.textContent=pre+to.toFixed(dp)+suf;return;}
+  const t0=performance.now();
+  (function step(t){let k=clamp((t-t0)/dur,0,1);k=1-Math.pow(1-k,3);
+    el.textContent=pre+lerp(from,to,k).toFixed(dp)+suf;
+    if(k<1)requestAnimationFrame(step);})(t0);
+}
+function safe(fn){try{fn();}catch(e){console.warn("[start-here] section failed:",e);}}
+
+/* ================= HERO STORY MAP ================= */
+safe(()=>{
+  const svg=$("#storymap");
+  const stops=[
+    ["#setup","01","copy trick",  "sig"],["#cliff","02","the cliff","sig"],
+    ["#head","03","the head","sig"],["#specific","04","control","dmg"],
+    ["#ablate","05","how to break","dmg"],["#compose","06","two halves","up"],
+    ["#hydra","07","backups","dmg"],["#emerge","08","born","good"],
+    ["#dose","09","grow one","safe"],["#refusal","10","refusal","safe"],
+    ["#unlearn","11","unlearn?","dmg"],["#next","12","what's next","sig"],
+  ];
+  const cm={sig:"var(--sig)",dmg:"var(--dmg)",up:"var(--up)",safe:"var(--safe)",good:"var(--good)"};
+  const W=1000,pad=48, n=stops.length, gap=(W-2*pad)/(n-1);
+  // connecting path (gentle wave)
+  const ys=stops.map((_,i)=>105+Math.sin(i*0.9)*34);
+  let d=`M ${pad} ${ys[0]}`;
+  for(let i=1;i<n;i++){const x0=pad+(i-1)*gap,x1=pad+i*gap;d+=` C ${(x0+x1)/2} ${ys[i-1]}, ${(x0+x1)/2} ${ys[i]}, ${x1} ${ys[i]}`;}
+  svg.appendChild(E("path",{d,fill:"none",stroke:"var(--line2)","stroke-width":2}));
+  stops.forEach((s,i)=>{
+    const x=pad+i*gap,y=ys[i],c=cm[s[3]];
+    const g=E("g",{class:"mapnode"});
+    g.appendChild(E("circle",{cx:x,cy:y,r:15,fill:"#0b0f17",stroke:c,"stroke-width":2}));
+    g.appendChild(E("text",{x,y:y+4,"text-anchor":"middle","font-weight":"700",fill:c},[document.createTextNode(s[1])]));
+    g.appendChild(E("text",{x,y:y+34,"text-anchor":"middle"},[document.createTextNode(s[2])]));
+    g.style.cursor="pointer";
+    g.addEventListener("click",()=>$(s[0]).scrollIntoView({behavior:RM?"auto":"smooth"}));
+    svg.appendChild(g);
+  });
+});
+
+/* ================= 01 SEQUENCE STRIP ================= */
+safe(()=>{
+  const SEQ=18; // shortened for display (real is 50)
+  const strip=$("#seqStrip");
+  const rng=mulberry32(7);
+  const hues=[];for(let i=0;i<SEQ;i++)hues.push(Math.floor(rng()*360));
+  const cells=[];
+  // BOS
+  const bos=H("div",{class:"tok bos"},"·"); strip.appendChild(bos); cells.push({el:bos,role:"bos"});
+  for(let copy=0;copy<2;copy++)for(let i=0;i<SEQ;i++){
+    const el=H("div",{class:"tok"}, "r"+i);
+    el.style.background=`hsl(${hues[i]} 55% 60%)`;
+    strip.appendChild(el);
+    cells.push({el,role:copy===0?"c1":"c2",i,copy});
+  }
+  // attach hover listeners with the correct index for every cell
+  cells.forEach((c,idx)=>c.el.addEventListener("mouseenter",()=>show(idx)));
+  const posEl=$("#seqPos"),tokEl=$("#seqTok"),roleEl=$("#seqRole");
+  function show(idx){
+    const c=cells[idx];
+    cells.forEach(x=>x.el.classList.remove("playhead"));
+    c.el.classList.add("playhead");
+    posEl.textContent=idx;
+    tokEl.textContent=c.role==="bos"?"BOS":("r"+c.i);
+    if(c.role==="bos"){roleEl.innerHTML='the "start" marker — nothing before it';roleEl.style.color="var(--dim)";}
+    else if(c.role==="c1"){roleEl.innerHTML='first time seeing <b class="dmg">r'+c.i+'</b> → pure guess, high surprise';roleEl.style.color="var(--dmg)";}
+    else {roleEl.innerHTML='seen <b class="good">r'+c.i+'</b> before at pos '+(1+c.i)+' → copy it, low surprise';roleEl.style.color="var(--good)";}
+  }
+  let timer=null;
+  $("#playSeq").addEventListener("click",e=>{
+    if(timer){clearInterval(timer);timer=null;e.target.textContent="▶ play the read-through";return;}
+    e.target.textContent="⏸ pause"; let i=0;
+    show(0);
+    timer=setInterval(()=>{i++;if(i>=cells.length){clearInterval(timer);timer=null;e.target.textContent="▶ play the read-through";return;}show(i);},RM?1:220);
+  });
+  show(1);
+});
+
+/* ================= 02 CLIFF ================= */
+safe(()=>{
+  const svg=$("#cliffSvg"),W=900,Hh=340,ml=52,mr=20,mt=18,mb=48;
+  const N=40; // positions shown (BOS + 2 copies of ~20)
+  const P=1, S=Math.floor((N-1)/2); // seq len per copy
+  const rng=mulberry32(3);
+  // clean loss: copy1 high, copy2 low (from token after first copy-2 token)
+  function build(ablated){
+    const L=[];
+    for(let i=0;i<N-1;i++){ // loss[i] predicts token i+1
+      const tokPredicted=i+1;
+      let base;
+      if(tokPredicted<=S) base=10.4;                 // copy1 -> guessing
+      else if(tokPredicted===S+1) base=10.2;         // first copy-2 token: still a guess
+      else base= ablated? 8.4 : 1.5;                 // copy2 predictable region
+      L.push(Math.max(0.2, base+(rng()-0.5)*0.7));
+    }
+    return L;
+  }
+  let clean=build(false), abl=build(true), cur=clean.slice();
+  const x=scaleLin(0,N-2,ml,W-mr), y=scaleLin(0,12,Hh-mb,mt);
+  function draw(data){
+    svg.innerHTML="";
+    // shaded regions
+    svg.appendChild(E("rect",{x:x(0),y:mt,width:x(S-1)-x(0),height:(Hh-mb)-mt,fill:"#ff6b6b0c"}));
+    svg.appendChild(E("rect",{x:x(S),y:mt,width:(W-mr)-x(S),height:(Hh-mb)-mt,fill:"#3ad4ee0c"}));
+    // grid + y labels
+    for(let g=0;g<=12;g+=3){svg.appendChild(E("line",{x1:ml,y1:y(g),x2:W-mr,y2:y(g),class:"gridline"}));
+      svg.appendChild(E("text",{x:ml-8,y:y(g)+4,"text-anchor":"end",class:"axislbl"},[document.createTextNode(g)]));}
+    // region labels
+    svg.appendChild(E("text",{x:(x(0)+x(S-1))/2,y:Hh-mb+30,"text-anchor":"middle",class:"axislbl",fill:"var(--dmg)"},[document.createTextNode("copy 1 · guessing")]));
+    svg.appendChild(E("text",{x:(x(S)+x(N-2))/2,y:Hh-mb+30,"text-anchor":"middle",class:"axislbl",fill:"var(--sig)"},[document.createTextNode("copy 2 · remembering")]));
+    svg.appendChild(E("text",{x:ml-40,y:mt+8,class:"axislbl",transform:`rotate(-90 ${ml-40} ${mt+8})`},[document.createTextNode("surprise (loss)")]));
+    // the curve
+    let d="";data.forEach((v,i)=>{d+=(i?"L":"M")+" "+x(i)+" "+y(v)+" ";});
+    // area under
+    svg.appendChild(E("path",{d:d+`L ${x(data.length-1)} ${y(0)} L ${x(0)} ${y(0)} Z`,fill:"#3ad4ee12"}));
+    svg.appendChild(E("path",{d,fill:"none",stroke:"var(--sig)","stroke-width":2.5,"stroke-linejoin":"round"}));
+    // cliff arrow
+    const ci=S; // index where drop happens
+    if(data[ci+1]<data[ci]-2){
+      svg.appendChild(E("line",{x1:x(ci)+6,y1:y(data[ci])+6,x2:x(ci+1)+2,y2:y(data[ci+1])-6,stroke:"var(--good)","stroke-width":2,"marker-end":""}));
+      svg.appendChild(E("text",{x:x(ci)+14,y:y(6),class:"axislbl",fill:"var(--good)","font-weight":"700"},[document.createTextNode("↓ the cliff")]));
+    }
+    // dots
+    data.forEach((v,i)=>svg.appendChild(E("circle",{cx:x(i),cy:y(v),r:2.4,fill:i>S?"var(--sig)":"#ff8f8f"})));
+  }
+  function stats(data){
+    const c1=data.slice(0,S).reduce((a,b)=>a+b,0)/S;
+    const c2region=data.slice(S+1);
+    const c2=c2region.reduce((a,b)=>a+b,0)/c2region.length;
+    animNum($("#c1"),c1,{dp:1}); animNum($("#c2"),c2,{dp:1});
+    $("#cdrop").textContent=(c1/c2).toFixed(1)+"×";
+  }
+  function morph(to,cb){
+    if(RM){cur=to.slice();draw(cur);cb&&cb();return;}
+    const from=cur.slice(),t0=performance.now();
+    (function s(t){let k=clamp((t-t0)/650,0,1);k=1-Math.pow(1-k,3);
+      cur=from.map((v,i)=>lerp(v,to[i],k));draw(cur);
+      if(k<1)requestAnimationFrame(s);else cb&&cb();})(t0);
+  }
+  draw(cur);stats(cur);
+  let ablated=false;
+  $("#ablBtn").addEventListener("click",e=>{
+    ablated=!ablated; e.target.classList.toggle("on",ablated);
+    e.target.textContent=ablated?"↺ restore the heads":"✂ ablate the induction heads";
+    morph(ablated?abl:clean,()=>stats(ablated?abl:clean));
+    $("#cliffMsg").className="callout "+(ablated?"warn":"aha");
+    $("#cliffMsg").innerHTML=ablated
+      ? '<b>Cliff refilled.</b> With the induction heads deleted, copy 2 is nearly as surprising as copy 1 again — the model lost the ability to copy. That jump is <b>causal proof</b> those specific heads drove the behaviour. (On real gpt2 the jump is ~36×.)'
+      : '<b>This is in-context learning you can see.</b> Copy 1 stays high (nothing to copy yet). Copy 2 plunges — the model found the pattern in its own prompt. The first copy-2 token is still a guess (nothing precedes it), so the cliff starts <i>one token in</i>.';
+  });
+});
+
+/* ================= 03 HEAD DEMO (diagonal stripe) ================= */
+safe(()=>{
+  const mount=$("#headDemo");
+  const S=8;
+  const rng=mulberry32(11);const hues=[];for(let i=0;i<S;i++)hues.push(Math.floor(rng()*360));
+  const seq=[]; // BOS + copy1 + copy2
+  seq.push({t:"·",bos:true});
+  for(let c=0;c<2;c++)for(let i=0;i<S;i++)seq.push({t:"r"+i,i,copy:c});
+  const wrap=H("div",{style:"display:flex;flex-wrap:wrap;gap:4px;font-family:var(--mono);font-size:12px"});
+  const els=seq.map((s,idx)=>{
+    const el=H("div",{class:"tok"+(s.bos?" bos":"")}, s.t);
+    if(!s.bos)el.style.background=`hsl(${hues[s.i]} 55% 60%)`;
+    el.style.width="30px";el.style.height="34px";
+    wrap.appendChild(el);return el;
+  });
+  mount.appendChild(wrap);
+  const svgWrap=H("div",{style:"position:relative"});
+  const arc=E("svg",{viewBox:"0 0 1000 60",style:"height:60px;margin-top:-4px"});
+  svgWrap.appendChild(arc);mount.appendChild(svgWrap);
+  function clearArc(){arc.innerHTML="";}
+  // hovering a copy-2 token draws arrow to (previous occurrence + 1)
+  seq.forEach((s,idx)=>{
+    if(s.copy!==1)return;
+    els[idx].style.outline="1px dashed var(--sig)";
+    els[idx].addEventListener("mouseenter",()=>{
+      els.forEach(e=>e.style.boxShadow="");
+      // previous occurrence of r_i is at index 1+s.i ; the token AFTER it is 1+s.i+1
+      const prevOcc=1+s.i, target=prevOcc+1;
+      els[idx].style.boxShadow="0 0 0 2px #fff";
+      if(target<els.length){
+        els[prevOcc].style.boxShadow="0 0 0 2px var(--up)";
+        els[target].style.boxShadow="0 0 0 2px var(--good)";
+        const rects=els.map(e=>e.getBoundingClientRect());
+        const base=wrap.getBoundingClientRect();
+        const ax=(rects[idx].left+rects[idx].right)/2-base.left;
+        const bx=(rects[target].left+rects[target].right)/2-base.left;
+        const scaleX=1000/base.width;
+        clearArc();
+        const x1=ax*scaleX,x2=bx*scaleX;
+        arc.appendChild(E("path",{d:`M ${x1} 6 C ${x1} 50, ${x2} 50, ${x2} 6`,fill:"none",stroke:"var(--sig)","stroke-width":2}));
+        arc.appendChild(E("circle",{cx:x2,cy:6,r:4,fill:"var(--good)"}));
+        const nx=seq[target];
+        $("#headMsg").innerHTML=`You're at <b class="sig">r${s.i}</b> (copy 2). The head finds its earlier copy (<b class="up">purple</b>), then attends to the very next token — <b class="good">${nx.bos?"·":"r"+nx.i}</b> — and predicts it. That look-back-and-shift is the induction move.`;
+      }
+    });
+  });
+});
+
+/* ================= 04 SPECIFICITY ================= */
+safe(()=>{
+  const data={ // sigma above random mean, and rough ratios for illustration
+    "gpt2":{sig:10,rand:1.3,ind:36.5},
+    "Pythia-1.4B":{sig:102,rand:1.2,ind:15.2},
+    "Qwen3-1.7B":{sig:11,rand:1.15,ind:2.9},
+    "Qwen3.5-2B":{sig:34,rand:1.25,ind:23.3},
+  };
+  const seg=$("#sigModel");
+  Object.keys(data).forEach((m,i)=>{const b=H("button",{class:"btn"+(i===0?" on":"")},m);b.dataset.m=m;seg.appendChild(b);});
+  const svg=$("#sigSvg"),W=900,Hh=260;
+  function draw(m){
+    $$(".btn",seg).forEach(b=>b.classList.toggle("on",b.dataset.m===m));
+    const d=data[m];svg.innerHTML="";
+    // number line from 0 to slightly above sigma
+    const max=Math.max(14,d.sig*1.15),ml=30,mr=30,y0=150;
+    const x=scaleLin(0,max,ml,W-mr);
+    // random cluster around ~1 (a fuzzy blob)
+    svg.appendChild(E("line",{x1:ml,y1:y0,x2:W-mr,y2:y0,stroke:"var(--line2)","stroke-width":2}));
+    const rng=mulberry32(5);
+    for(let i=0;i<10;i++){const xx=x(0.6+rng()*1.2);
+      svg.appendChild(E("circle",{cx:xx,cy:y0-2+(rng()-0.5)*18,r:5,fill:"#5f6d82"}));}
+    svg.appendChild(E("text",{x:x(1),y:y0+34,"text-anchor":"middle",class:"axislbl"},[document.createTextNode("10 random ablations")]));
+    svg.appendChild(E("text",{x:x(1),y:y0+50,"text-anchor":"middle",class:"axislbl",fill:"var(--faint)"},[document.createTextNode("(barely a scratch)")]));
+    // induction marker far right
+    const xi=x(d.sig);
+    svg.appendChild(E("line",{x1:xi,y1:60,x2:xi,y2:y0,stroke:"var(--dmg)","stroke-width":2,"stroke-dasharray":"4 4"}));
+    svg.appendChild(E("circle",{cx:xi,cy:y0,r:9,fill:"var(--dmg)"}));
+    const t=E("text",{x:xi,y:48,"text-anchor":"middle",fill:"var(--dmg)","font-weight":"700",class:"axislbl"});
+    t.style.fontSize="14px";t.appendChild(document.createTextNode("induction heads · "+d.sig+"σ out"));
+    svg.appendChild(t);
+    // arrow bracket
+    svg.appendChild(E("text",{x:(x(1)+xi)/2,y:y0-30,"text-anchor":"middle",class:"axislbl"},[document.createTextNode("← same # of heads, wildly different damage →")]));
+    $("#sigMsg").innerHTML=`On <b>${m}</b>, ablating the induction heads is <b class="dmg">${d.sig}σ</b> beyond the average random ablation. Translation: losing <i>these specific</i> heads isn't like losing <i>any</i> ${'k'} heads — the circuit is a real, localized thing.`;
+  }
+  seg.addEventListener("click",e=>{if(e.target.dataset.m)draw(e.target.dataset.m);});
+  draw("gpt2");
+});
+
+/* ================= 05 THREE ABLATIONS ================= */
+safe(()=>{
+  const cards=[
+    {k:"zero",name:"Zero",col:"var(--dmg)",tag:"replace with 0",
+     desc:"“Pretend the head output nothing.” Simplest — but the model never saw all-zeros in training, so it overreacts.",
+     faith:"least faithful"},
+    {k:"mean",name:"Mean",col:"var(--safe)",tag:"replace with its average",
+     desc:"“Output your typical value.” Realistic size, but carries no info about <i>this</i> input. A fairer null.",
+     faith:"more faithful"},
+    {k:"patch",name:"Patch",col:"var(--good)",tag:"replace with a control run",
+     desc:"“Do what you'd do on a matched prompt where copying is impossible.” A real activation — zero shock. Gold standard.",
+     faith:"most faithful"},
+  ];
+  const mount=$("#ablCards");
+  cards.forEach(c=>{
+    const el=H("div",{class:"panel",style:`border-color:${c.col}40`});
+    el.innerHTML=`<div class="row" style="justify-content:space-between">
+        <b style="color:${c.col};font-size:18px">${c.name}</b>
+        <span class="tag">${c.faith}</span></div>
+      <div class="tag" style="margin:4px 0 10px">${c.tag}</div>
+      <svg viewBox="0 0 220 70" style="height:70px"></svg>
+      <p class="muted" style="font-size:14px;margin:8px 0 0">${c.desc}</p>`;
+    mount.appendChild(el);
+    // little bar viz: original vs replacement
+    const svg=el.querySelector("svg");const rng=mulberry32(c.k.length*13+1);
+    const orig=[];for(let i=0;i<8;i++)orig.push(0.2+rng()*0.8);
+    const x=scaleLin(0,7,14,206);
+    orig.forEach((v,i)=>{
+      // original faint
+      svg.appendChild(E("rect",{x:x(i)-8,y:60-v*46,width:7,height:v*46,fill:"#ffffff18",rx:1}));
+      // replacement
+      let rv;if(c.k==="zero")rv=0.02;else if(c.k==="mean")rv=0.5;else rv=0.2+mulberry32(i*7+2)()*0.8;
+      svg.appendChild(E("rect",{x:x(i),y:60-rv*46,width:7,height:Math.max(1.5,rv*46),fill:c.col,rx:1,opacity:.9}));
+    });
+  });
+
+  // comparison bars (real exp-13 numbers)
+  const dmg={
+    "gpt2":{zero:36.5,mean:23.0,patch:26.1,note:"zero &gt; patch &gt; mean — zeroing overstates the damage."},
+    "Pythia-1.4B":{zero:15.2,mean:11.4,patch:13.3,note:"same ordering — but the gap is smaller."},
+    "Qwen3.5-4B":{zero:18.4,mean:16.6,patch:15.4,note:"ordering FLIPS: zero &gt; mean &gt; patch. No universal law."},
+    "Qwen3-1.7B":{zero:4.5,mean:5.0,patch:4.4,note:"mean even edges out zero here — and all three recruit backups (the Hydra)."},
+  };
+  const seg=$("#ablModel");
+  Object.keys(dmg).forEach((m,i)=>{const b=H("button",{class:"btn"+(i===0?" on":"")},m);b.dataset.m=m;seg.appendChild(b);});
+  const svg=$("#ablSvg"),W=900,Hh=220;
+  function draw(m){
+    $$(".btn",seg).forEach(b=>b.classList.toggle("on",b.dataset.m===m));
+    const d=dmg[m];svg.innerHTML="";
+    const modes=[["zero","Zero","var(--dmg)"],["mean","Mean","var(--safe)"],["patch","Patch","var(--good)"]];
+    const max=Math.max(d.zero,d.mean,d.patch)*1.2, ml=60,mb=40,mt=16;
+    const y=scaleLin(0,max,Hh-mb,mt);
+    const bw=120, gap=90, x0=ml+40;
+    // axis
+    svg.appendChild(E("text",{x:16,y:mt+8,class:"axislbl",transform:`rotate(-90 16 ${mt+8})`},[document.createTextNode("copy-2 surprise ×")]));
+    modes.forEach((mo,i)=>{
+      const v=d[mo[0]],xx=x0+i*(bw+gap);
+      svg.appendChild(E("rect",{x:xx,y:y(v),width:bw,height:(Hh-mb)-y(v),fill:mo[2],rx:6,opacity:.92}));
+      const lbl=E("text",{x:xx+bw/2,y:y(v)-8,"text-anchor":"middle","font-weight":"700",fill:mo[2],class:"axislbl"});
+      lbl.style.fontSize="17px";lbl.appendChild(document.createTextNode(v.toFixed(1)+"×"));
+      svg.appendChild(lbl);
+      svg.appendChild(E("text",{x:xx+bw/2,y:Hh-mb+22,"text-anchor":"middle",class:"axislbl"},[document.createTextNode(mo[1])]));
+    });
+    $("#ablMsg").innerHTML=`<b>${m}:</b> ${d.note}`;
+  }
+  seg.addEventListener("click",e=>{if(e.target.dataset.m)draw(e.target.dataset.m);});
+  draw("gpt2");
+});
+
+/* ================= 06 COMPOSITION ================= */
+safe(()=>{
+  const svg=$("#compSvg"),W=900,Hh=300;
+  let cut=false;
+  function draw(){
+    svg.innerHTML="";
+    const upC=cut?"#4a3a63":"var(--up)", sigC=cut?"#2a4a52":"var(--sig)";
+    // token row bottom
+    const toks=["r5","...","r5","?"];const tx=[140,300,560,720];
+    // previous-token head (layer 2)
+    svg.appendChild(node(200,70,"prev-token head",'L2H1',upC,"tags each token with WHO came before it"));
+    // induction head (layer 3)
+    svg.appendChild(node(660,70,"induction head",'L3H0',sigC,"copies what followed last time"));
+    // arrow between (the composition)
+    const ax1=200+90,ax2=660-90;
+    svg.appendChild(E("path",{d:`M ${ax1} 90 C ${(ax1+ax2)/2} 90, ${(ax1+ax2)/2} 90, ${ax2} 90`,
+      fill:"none",stroke:cut?"#3a2233":"var(--sig)","stroke-width":3,"stroke-dasharray":cut?"6 6":"none"}));
+    const midx=(ax1+ax2)/2;
+    if(cut){
+      svg.appendChild(E("text",{x:midx,y:70,"text-anchor":"middle",fill:"var(--dmg)","font-weight":"700"},[document.createTextNode("✂ signal cut")]));
+      svg.appendChild(E("line",{x1:midx-16,y1:78,x2:midx+16,y2:102,stroke:"var(--dmg)","stroke-width":3}));
+      svg.appendChild(E("line",{x1:midx+16,y1:78,x2:midx-16,y2:102,stroke:"var(--dmg)","stroke-width":3}));
+    }else{
+      svg.appendChild(E("text",{x:midx,y:74,"text-anchor":"middle",class:"axislbl",fill:"var(--sig)"},[document.createTextNode("passes “the previous token” →")]));
+    }
+    // down arrow from induction to prediction
+    svg.appendChild(E("path",{d:`M 660 150 L 660 210`,stroke:sigC,"stroke-width":2,"marker-end":""}));
+    svg.appendChild(E("text",{x:660,y:236,"text-anchor":"middle",fill:sigC,"font-weight":"700"},[document.createTextNode(cut?"?? (blind)":"predicts the copy ✓")]));
+  }
+  function node(cx,cy,title,id,col,sub){
+    const g=E("g",{});
+    g.appendChild(E("rect",{x:cx-90,y:cy-30,width:180,height:70,rx:12,fill:"#0a0e15",stroke:col,"stroke-width":2}));
+    const t1=E("text",{x:cx,y:cy-6,"text-anchor":"middle",fill:col,"font-weight":"700"});t1.appendChild(document.createTextNode(id));
+    g.appendChild(t1);
+    g.appendChild(E("text",{x:cx,y:cy+12,"text-anchor":"middle",class:"axislbl"},[document.createTextNode(title)]));
+    const subt=E("text",{x:cx,y:cy+62,"text-anchor":"middle",class:"axislbl",fill:"var(--faint)"});subt.style.fontSize="10.5px";
+    subt.appendChild(document.createTextNode(sub));g.appendChild(subt);
+    return g;
+  }
+  draw();
+  $("#compBtn").addEventListener("click",e=>{
+    cut=!cut;e.target.classList.toggle("on",cut);
+    e.target.textContent=cut?"↺ reconnect the prev-token heads":"✂ cut the previous-token heads";
+    draw();
+    animNum($("#compScore"),cut?0.23:0.65,{dp:2});
+    $("#compScore").style.color=cut?"var(--dmg)":"var(--sig)";
+    $("#compLoss").textContent=cut?"2.7× worse":"low";$("#compLoss").style.color=cut?"var(--dmg)":"var(--good)";
+    $("#compMsg").className="callout "+(cut?"warn":"aha");
+    $("#compMsg").innerHTML=cut
+      ? '<b>The induction head went blind</b> — its own attention score collapsed 0.65→0.23 and copy-2 surprise nearly tripled, even though we never touched it. We only cut its <b class="up">supplier</b> one layer upstream. (Qwen3-1.7B numbers.)'
+      : '<b>Composition:</b> the behaviour isn\'t in one head — it\'s two heads talking across layers. Break the conversation upstream and the downstream head has nothing to say.';
+  });
+});
+
+/* ================= 07 HYDRA ================= */
+safe(()=>{
+  const models={
+    "Qwen3-1.7B":{recruits:true,rounds:[
+      {t:"round 1 — ablate the main induction heads",dmg:"2.9×",backups:[]},
+      {t:"round 2 — re-score the broken model… 3 backups wake up!",dmg:"4.5×",backups:["L21H9","L18H4","L8H5"]},
+      {t:"converged — no more volunteers",dmg:"4.5×",backups:[]},
+    ],msg:'<b>A real Hydra.</b> Cut the main heads and three dormant backups (invisible in the healthy model) step up. Damage climbs 2.9×→4.5× — but note it\'s still far below gpt2\'s 36×, so most of this model\'s robustness is diffuse, spread below any single threshold.'},
+    "gpt2":{recruits:false,rounds:[
+      {t:"round 1 — ablate the main induction heads",dmg:"36.5×",backups:[]},
+      {t:"round 2 — re-score… nobody steps up",dmg:"36.5×",backups:[]},
+    ],msg:'<b>No Hydra.</b> gpt2 converges in one round with zero recruits. Its induction circuit is concentrated in a few heads with no hidden backups — which is exactly why cutting them hurts so much (36×).'},
+    "Qwen3.5-4B":{recruits:false,rounds:[
+      {t:"round 1 — ablate 34 induction heads",dmg:"18.4×",backups:[]},
+      {t:"round 2 — re-score… nobody new",dmg:"18.4×",backups:[]},
+    ],msg:'<b>No new Hydra heads</b> — but this hybrid already spreads the job across 34 heads at once, so it\'s <i>less</i> fragile than the 2B despite doing more. The load was shared from the start, not held in reserve.'},
+  };
+  const seg=$("#hydraModel");
+  Object.keys(models).forEach((m,i)=>{const b=H("button",{class:"btn"+(i===0?" on":"")},m);b.dataset.m=m;seg.appendChild(b);});
+  const stage=$("#hydraStage");
+  function draw(m){
+    $$(".btn",seg).forEach(b=>b.classList.toggle("on",b.dataset.m===m));
+    const d=models[m];stage.innerHTML="";
+    d.rounds.forEach((r,i)=>{
+      const row=H("div",{class:"panel",style:"background:#0a0e15;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px"});
+      let bhtml=r.backups.length
+        ? r.backups.map(b=>`<span class="pill" style="border-color:var(--good);color:var(--good)">● ${b}</span>`).join(" ")
+        : '<span class="tag">no new heads</span>';
+      row.innerHTML=`<div><div class="tag">step ${i+1}</div><div style="font-size:14.5px">${r.t}</div>
+        <div style="margin-top:6px">${bhtml}</div></div>
+        <div class="stat" style="text-align:right"><div class="k">damage</div><div class="v" style="color:var(--dmg)">${r.dmg}</div></div>`;
+      stage.appendChild(row);
+    });
+    $("#hydraMsg").innerHTML=d.msg;
+  }
+  seg.addEventListener("click",e=>{if(e.target.dataset.m)draw(e.target.dataset.m);});
+  draw("Qwen3-1.7B");
+});
+
+/* ================= 08 EMERGENCE (real Pythia data) ================= */
+safe(()=>{
+  const D=[ // step, copy1, copy2, top_score
+    [0,11.08,11.07,0.016],[64,11.03,11.03,0.017],[256,12.35,12.37,0.017],
+    [512,13.03,12.92,0.062],[1000,14.03,3.91,0.899],[2000,13.81,1.93,0.934],
+    [3000,13.61,1.30,0.945],[4000,13.23,1.20,0.962],[5000,13.43,0.88,0.963],
+    [8000,13.33,0.85,0.966],[16000,12.93,0.79,0.968],[32000,13.25,1.01,0.959],
+    [64000,13.44,1.18,0.960],[143000,12.92,1.32,0.974],
+  ];
+  const svg=$("#emSvg"),W=900,Hh=360,ml=54,mr=54,mt=20,mb=44;
+  const xsRaw=scaleLog(64,143000,ml,W-mr);
+  // clamp to the plot box so the step-0 point (log of 0 is undefined) sits at the
+  // axis start instead of shooting off-canvas to the left
+  const xs=s=>Math.max(ml,Math.min(W-mr,xsRaw(s)));
+  const yL=scaleLin(0,15,Hh-mb,mt);   // loss (left)
+  const yR=scaleLin(0,1,Hh-mb,mt);    // score (right)
+  function base(){
+    svg.innerHTML="";
+    for(let g=0;g<=15;g+=3){svg.appendChild(E("line",{x1:ml,y1:yL(g),x2:W-mr,y2:yL(g),class:"gridline"}));
+      svg.appendChild(E("text",{x:ml-8,y:yL(g)+4,"text-anchor":"end",class:"axislbl"},[document.createTextNode(g)]));}
+    [0,0.5,1].forEach(g=>svg.appendChild(E("text",{x:W-mr+8,y:yR(g)+4,class:"axislbl",fill:"var(--sig)"},[document.createTextNode(g)])));
+    // x ticks
+    [64,512,1000,8000,64000,143000].forEach(s=>{
+      svg.appendChild(E("text",{x:xs(s),y:Hh-mb+22,"text-anchor":"middle",class:"axislbl"},[document.createTextNode(s>=1000?(s/1000)+"k":s)]));});
+    svg.appendChild(E("text",{x:(ml+W-mr)/2,y:Hh-6,"text-anchor":"middle",class:"axislbl"},[document.createTextNode("training step (log scale)")]));
+    svg.appendChild(E("text",{x:16,y:mt+8,class:"axislbl",fill:"var(--good)",transform:`rotate(-90 16 ${mt+8})`},[document.createTextNode("surprise")]));
+    svg.appendChild(E("text",{x:W-14,y:mt+8,class:"axislbl",fill:"var(--sig)",transform:`rotate(90 ${W-14} ${mt+8})`},[document.createTextNode("induction score")]));
+    // ignition band
+    svg.appendChild(E("rect",{x:xs(512),y:mt,width:xs(1000)-xs(512),height:(Hh-mb)-mt,fill:"#54e6a610"}));
+    svg.appendChild(E("text",{x:(xs(512)+xs(1000))/2,y:mt+14,"text-anchor":"middle",class:"axislbl",fill:"var(--good)"},[document.createTextNode("ignition")]));
+    // lines: copy1 (flat control), copy2 (crash), score (rise)
+    line(D.map(d=>[d[0],d[1]]),yL,"#5f6d82",1.5,"4 3"); // copy1 (flat control)
+    line(D.map(d=>[d[0],d[2]]),yL,"var(--good)",2.5);    // copy2 (the crash)
+    // score line uses the right-hand axis (yR): build manually
+    let d="";D.forEach((row,i)=>{d+=(i?"L":"M")+" "+xs(row[0])+" "+yR(row[3])+" ";});
+    svg.appendChild(E("path",{d,fill:"none",stroke:"var(--sig)","stroke-width":2.5}));
+    D.forEach(row=>svg.appendChild(E("circle",{cx:xs(row[0]),cy:yR(row[3]),r:2.5,fill:"var(--sig)"})));
+  }
+  function line(pts,ysc,col,w,dash){let d="";pts.forEach((p,i)=>{d+=(i?"L":"M")+" "+xs(p[0])+" "+ysc(p[1])+" ";});
+    svg.appendChild(E("path",{d,fill:"none",stroke:col,"stroke-width":w,"stroke-dasharray":dash||"none"}));}
+  let playhead=null;
+  function mark(i){
+    base();
+    const row=D[i];
+    svg.appendChild(E("line",{x1:xs(row[0]),y1:mt,x2:xs(row[0]),y2:Hh-mb,stroke:"#fff","stroke-width":1.5,opacity:.6}));
+    svg.appendChild(E("circle",{cx:xs(row[0]),cy:yR(row[3]),r:6,fill:"var(--sig)",stroke:"#fff","stroke-width":2}));
+    svg.appendChild(E("circle",{cx:xs(row[0]),cy:yL(row[2]),r:6,fill:"var(--good)",stroke:"#fff","stroke-width":2}));
+    $("#emStep").textContent=row[0]>=1000?(row[0]/1000)+"k":row[0];
+    animNum($("#emScore"),row[3],{dp:2});
+    animNum($("#emLoss"),row[2],{dp:1});
+    const ign=row[0]>=1000;
+    $("#emMsg").className="callout "+(ign?"aha":"warn");
+    $("#emMsg").innerHTML=ign
+      ? `<b>Ignited.</b> By step ${row[0]>=1000?(row[0]/1000)+"k":row[0]} the induction score is <b class="sig">${row[3].toFixed(2)}</b> and copy-2 surprise has crashed to <b class="good">${row[2].toFixed(1)}</b>. The whole phase change happened in the shaded window — roughly 1–2 billion tokens.`
+      : `<b>Not yet.</b> At step ${row[0]} the circuit basically doesn't exist (score <b>${row[3].toFixed(2)}</b>) and the model can't copy (surprise <b>${row[2].toFixed(1)}</b>). Keep dragging → watch step 512 → 1000.`;
+  }
+  const sl=$("#emSlider");
+  sl.addEventListener("input",()=>mark(+sl.value));
+  let playing=null;
+  $("#emPlay").addEventListener("click",e=>{
+    if(playing){clearInterval(playing);playing=null;e.target.textContent="▶ auto-play";return;}
+    e.target.textContent="⏸ pause";let i=+sl.value;
+    playing=setInterval(()=>{i=(i+1)%D.length;sl.value=i;mark(i);},RM?1:700);
+  });
+  mark(0);
+});
+
+/* ================= 09 DOSE-RESPONSE (real exp-12 data) ================= */
+safe(()=>{
+  // downsampled top_score curves (step, score)
+  const runs={
+    "TinyStories only":{col:"#5f6d82",on:true,pts:[[0,0.015],[4000,0.018],[8000,0.019],[16000,0.019],[24000,0.020],[30000,0.019]],
+      note:"never ignites"},
+    "+30% wikitext":{col:"var(--safe)",on:true,pts:[[0,0.015],[6000,0.03],[12000,0.05],[18000,0.06],[24000,0.063],[27000,0.061]],
+      note:"stalls at 0.065"},
+    "85% text + 15% synthetic":{col:"var(--sig)",on:true,pts:[[0,0.015],[3072,0.020],[5632,0.025],[6144,0.72],[6400,0.82],[7168,0.94],[11264,0.93],[19456,0.93],[29696,0.90]],
+      note:"IGNITES → 0.95 peak"},
+  };
+  const wrap=$("#doseToggles");
+  Object.keys(runs).forEach(k=>{
+    const r=runs[k];
+    const b=H("button",{class:"btn on"},`<span class="dotsw" style="background:${r.col}"></span> ${k}`);
+    b.style.display="inline-flex";b.style.alignItems="center";b.style.gap="8px";
+    b.dataset.k=k;wrap.appendChild(b);
+    b.addEventListener("click",()=>{r.on=!r.on;b.classList.toggle("on",r.on);draw();});
+  });
+  const svg=$("#doseSvg"),W=900,Hh=320,ml=52,mr=140,mt=20,mb=44;
+  const xs=scaleLin(0,30000,ml,W-mr), ys=scaleLin(0,1,Hh-mb,mt);
+  function draw(){
+    svg.innerHTML="";
+    for(let g=0;g<=1;g+=0.25){svg.appendChild(E("line",{x1:ml,y1:ys(g),x2:W-mr,y2:ys(g),class:"gridline"}));
+      svg.appendChild(E("text",{x:ml-8,y:ys(g)+4,"text-anchor":"end",class:"axislbl"},[document.createTextNode(g)]));}
+    [0,10000,20000,30000].forEach(s=>svg.appendChild(E("text",{x:xs(s),y:Hh-mb+22,"text-anchor":"middle",class:"axislbl"},[document.createTextNode((s/1000)+"k")])));
+    svg.appendChild(E("text",{x:(ml+W-mr)/2,y:Hh-6,"text-anchor":"middle",class:"axislbl"},[document.createTextNode("training step")]));
+    svg.appendChild(E("text",{x:16,y:mt+8,class:"axislbl",fill:"var(--sig)",transform:`rotate(-90 16 ${mt+8})`},[document.createTextNode("induction score")]));
+    // threshold line
+    svg.appendChild(E("line",{x1:ml,y1:ys(0.3),x2:W-mr,y2:ys(0.3),stroke:"var(--dmg)","stroke-width":1,"stroke-dasharray":"5 5",opacity:.6}));
+    svg.appendChild(E("text",{x:W-mr+6,y:ys(0.3)+4,class:"axislbl",fill:"var(--dmg)"},[document.createTextNode("thresh 0.3")]));
+    Object.keys(runs).forEach(k=>{
+      const r=runs[k];if(!r.on)return;
+      let d="";r.pts.forEach((p,i)=>{d+=(i?"L":"M")+" "+xs(p[0])+" "+ys(clamp(p[1],0,1))+" ";});
+      svg.appendChild(E("path",{d,fill:"none",stroke:r.col,"stroke-width":2.5,"stroke-linejoin":"round"}));
+      const last=r.pts[r.pts.length-1];
+      const lc=E("text",{x:W-mr+8,y:ys(clamp(last[1],0,1))+4,class:"axislbl",fill:r.col});lc.style.fontSize="11px";
+      lc.appendChild(document.createTextNode(r.note));svg.appendChild(lc);
+      r.pts.forEach(p=>svg.appendChild(E("circle",{cx:xs(p[0]),cy:ys(clamp(p[1],0,1)),r:2.2,fill:r.col})));
+    });
+  }
+  draw();
+});
+
+/* ================= 10 REFUSAL DIAL ================= */
+safe(()=>{
+  const sl=$("#refSlider");
+  function bar(mount,pct,col){
+    mount.innerHTML="";
+    const svg=E("svg",{viewBox:"0 0 300 18",style:"height:18px;margin:8px 0"});
+    svg.appendChild(E("rect",{x:0,y:3,width:300,height:12,rx:6,fill:"#0a0e15",stroke:"var(--line2)"}));
+    svg.appendChild(E("rect",{x:0,y:3,width:3+2.94*pct,height:12,rx:6,fill:col}));
+    mount.appendChild(svg);
+  }
+  function update(){
+    const v=+sl.value; // -100..100
+    // harmful refusal: 100 at 0, drops toward 17 as we remove (v<0), stays ~100 as we add
+    // harmless refusal: 0 at 0, rises toward 100 as we add (v>0), stays ~0 as we remove
+    let harm, safeP, state;
+    if(v<0){const t=-v/100; harm=Math.round(lerp(100,17,t)); safeP=0; state=`removing the direction (${Math.round(t*100)}%)`;}
+    else if(v>0){const t=v/100; harm=100; safeP=Math.round(lerp(0,100,t)); state=`adding the direction (${Math.round(t*100)}%)`;}
+    else {harm=100;safeP=0;state="clean model (no intervention)";}
+    $("#refHarm").textContent=harm+"%"; $("#refSafe").textContent=safeP+"%";
+    bar($("#refHarmBar"),harm,"var(--dmg)"); bar($("#refSafeBar"),safeP,"var(--safe)");
+    $("#refState").textContent=state;
+    const msg=$("#refMsg");
+    if(v<-40){msg.className="callout warn";msg.innerHTML='<b>Necessary.</b> Remove the refusal direction and a model that refused <b>100%</b> of harmful prompts now refuses only <b class="dmg">17%</b> — it answers things it used to block. The direction was <i>needed</i> for refusal.';}
+    else if(v>40){msg.className="callout warn";msg.innerHTML='<b>Sufficient.</b> Add the direction to <i>harmless</i> prompts and refusal jumps <b>0%→<span style="color:var(--safe)">100%</span></b> — the model refuses to answer perfectly safe questions. The direction alone is <i>enough</i> to cause refusal.';}
+    else{msg.className="callout aha";msg.innerHTML='<b>Necessary and sufficient.</b> Slide left to remove it (refusal collapses) or right to add it (refusal appears on safe prompts). Same "find it / break it / prove it" recipe from induction heads — pointed at a safety behaviour.';}
+  }
+  sl.addEventListener("input",update);
+  update();
+});
+
+/* ================= 11 UNLEARNING (real exp-09/10 data) ================= */
+safe(()=>{
+  const PROB={full:[0.90,0.84],retain90:[0.12,0.12],GradDiff:[0.10,0.12],NPO:[0.042,0.178],RMU:[0.86,0.77]};
+  const ROUGE={full:[0.79,0.65],retain90:[0.36,0.36],GradDiff:[0.35,0.38],NPO:[0.13,0.19],RMU:[0.73,0.75]};
+  const floors={prob:{floor:0.12,ceil:0.90},rouge:{floor:0.36,ceil:0.79}};
+  const notes={
+    full:"the model that learned normally — our ceiling.",
+    retain90:"never trained on these facts — our floor. Ablation must NOT lift it (or we're manufacturing knowledge).",
+    GradDiff:"genuinely forgot — sits at the floor and ablation doesn't recover it. Real erasure.",
+    NPO:"the twist: looks forgotten, but it's only SUPPRESSED. Ablating the refusal direction lifts it back — knowledge was hidden, not gone.",
+    RMU:"barely forgot on Q&A — still answers like 'full'. 'Unlearned' didn't show up in this metric at all.",
+  };
+  let model="NPO",metric="prob";
+  const segM=$("#ulModel"),segX=$("#ulMetric");
+  ["full","retain90","GradDiff","NPO","RMU"].forEach(m=>{const b=H("button",{class:"btn"+(m===model?" on":"")},m);b.dataset.m=m;segM.appendChild(b);});
+  [["prob","answer probability"],["rouge","generated answer (ROUGE)"]].forEach(x=>{const b=H("button",{class:"btn"+(x[0]===metric?" on":"")},x[1]);b.dataset.x=x[0];segX.appendChild(b);});
+  const svg=$("#ulSvg");
+  function draw(){
+    $$(".btn",segM).forEach(b=>b.classList.toggle("on",b.dataset.m===model));
+    $$(".btn",segX).forEach(b=>b.classList.toggle("on",b.dataset.x===metric));
+    const data=metric==="prob"?PROB:ROUGE, f=floors[metric];
+    const [base,abl]=data[model];
+    // gauge: vertical tube from 0..ceil, floor band + ceiling band
+    svg.innerHTML="";
+    const W=420,Hh=300,cx=120,top=30,bot=270,tubeW=90;
+    const y=scaleLin(0,Math.max(f.ceil*1.1,base,abl),bot,top);
+    // tube
+    svg.appendChild(E("rect",{x:cx-tubeW/2,y:top,width:tubeW,height:bot-top,rx:14,fill:"#0a0e15",stroke:"var(--line2)"}));
+    // floor & ceiling bands
+    svg.appendChild(E("line",{x1:cx-tubeW/2-10,y1:y(f.floor),x2:cx+tubeW/2+8,y2:y(f.floor),stroke:"var(--good)","stroke-width":2,"stroke-dasharray":"5 4"}));
+    svg.appendChild(E("text",{x:cx+tubeW/2+14,y:y(f.floor)+4,class:"axislbl",fill:"var(--good)"},[document.createTextNode("floor "+f.floor.toFixed(2))]));
+    svg.appendChild(E("line",{x1:cx-tubeW/2-10,y1:y(f.ceil),x2:cx+tubeW/2+8,y2:y(f.ceil),stroke:"var(--sig)","stroke-width":2,"stroke-dasharray":"5 4"}));
+    svg.appendChild(E("text",{x:cx+tubeW/2+14,y:y(f.ceil)+4,class:"axislbl",fill:"var(--sig)"},[document.createTextNode("ceiling "+f.ceil.toFixed(2))]));
+    // baseline fill
+    svg.appendChild(E("rect",{x:cx-tubeW/2+6,y:y(base),width:tubeW-12,height:bot-y(base),rx:8,fill:"var(--dim)",opacity:.5}));
+    // ablation marker
+    const col=abl>base+0.02?"var(--safe)":"var(--dim)";
+    svg.appendChild(E("line",{x1:cx-tubeW/2-6,y1:y(abl),x2:cx+tubeW/2+6,y2:y(abl),stroke:col,"stroke-width":3}));
+    svg.appendChild(E("text",{x:cx,y:top-8,"text-anchor":"middle",class:"axislbl"},[document.createTextNode("recall of forgotten facts →")]));
+    // labels
+    animNum($("#ulBase"),base,{dp:2}); animNum($("#ulAbl"),abl,{dp:2});
+    $("#ulBaseK").textContent="baseline recall ("+(metric==="prob"?"answer probability":"ROUGE")+")";
+    $("#ulAbl").style.color=abl>base+0.02?"var(--safe)":"var(--dim)";
+    const lifted=abl>base+0.02;
+    $("#ulMsg").innerHTML=`<b>${model}:</b> ${notes[model]} `+(
+      model==="NPO"&&metric==="prob"?'<b class="safe">← this is the payoff:</b> the gauge jumps above the floor only for NPO, only under the probability metric.':
+      model==="NPO"&&metric==="rouge"?'Under greedy generation it just looks forgotten — switch to <b>answer probability</b> to see it was only suppressed.':
+      lifted?'':'ablating the refusal direction barely moves it — nothing hidden to recover here.');
+  }
+  segM.addEventListener("click",e=>{if(e.target.dataset.m){model=e.target.dataset.m;draw();}});
+  segX.addEventListener("click",e=>{if(e.target.dataset.x){metric=e.target.dataset.x;draw();}});
+  draw();
+});
+
+/* ================= GLOSSARY ================= */
+safe(()=>{
+  const g=[
+    ["Token","A chunk of text the model reads — often a word or word-piece. The model predicts one token at a time."],
+    ["Attention head","A small unit that lets each token 'look at' earlier tokens and pull in info. A model has dozens.","sig"],
+    ["Residual stream","The model's shared 'memory bus' running through every layer. Heads read from it and write to it.","up"],
+    ["Logits / loss","Logits = the model's raw scores for the next token. Loss = how surprised it was by the true one. Low loss = good.","good"],
+    ["Induction head","A head with the habit: find where this token appeared before, copy what followed. The star of exp 01–07.","sig"],
+    ["Circuit","A few components wired together to do one job (e.g. prev-token head → induction head). Interpretability's unit of explanation.","up"],
+    ["Ablation","Deleting a component's output to test if it mattered. Zero / mean / patch are three ways to do it.","dmg"],
+    ["Direction","A single vector in activation space that encodes a concept (like 'refuse'). The feature-level cousin of a head.","safe"],
+    ["Phase change","When an ability appears suddenly during training rather than gradually — like induction igniting at step ~1000.","good"],
+    ["Composition","Two heads in different layers working together — one sets up the info the other uses."],
+    ["BOS","'Beginning of sequence' marker prepended to the input. Attention often dumps spare weight on it (a 'sink')."],
+    ["σ (sigma)","Standard deviation — spread of a set of numbers. '102σ out' = astronomically far from random chance."],
+  ];
+  const grid=$("#glossaryGrid");
+  const cm={sig:"var(--sig)",dmg:"var(--dmg)",up:"var(--up)",safe:"var(--safe)",good:"var(--good)"};
+  g.forEach(([term,def,col])=>{
+    const c=cm[col]||"var(--ink)";
+    const el=H("div",{class:"panel",style:"background:#0a0e15;padding:14px 16px"});
+    el.innerHTML=`<b style="color:${c}">${term}</b><div class="muted" style="font-size:14px;margin-top:4px">${def}</div>`;
+    grid.appendChild(el);
+  });
+});
+
+/* ================= NAV / PROGRESS / REVEAL ================= */
+safe(()=>{
+  const prog=$("#prog");
+  const onScroll=()=>{const h=document.documentElement;
+    prog.style.width=(h.scrollTop/(h.scrollHeight-h.clientHeight)*100)+"%";};
+  document.addEventListener("scroll",onScroll,{passive:true});onScroll();
+
+  const links=$$("nav a.navlink");
+  const map=new Map(links.map(l=>[l.getAttribute("href").slice(1),l]));
+  const io=new IntersectionObserver(es=>{
+    es.forEach(e=>{if(e.isIntersecting){links.forEach(l=>l.classList.remove("active"));
+      const l=map.get(e.target.id);if(l)l.classList.add("active");}});
+  },{rootMargin:"-45% 0px -50% 0px"});
+  $$("section[id]").forEach(s=>io.observe(s));
+
+  // reveal panels (fade-in on scroll), with a hard safety net so content can NEVER
+  // stay stuck invisible if IntersectionObserver misbehaves in any browser
+  if(!RM && "IntersectionObserver" in window){
+    const targets=$$(".panel, .callout, details");
+    targets.forEach(el=>el.classList.add("reveal"));
+    const ro=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add("in");ro.unobserve(e.target);}}),{rootMargin:"0px 0px -8% 0px"});
+    targets.forEach(el=>ro.observe(el));
+    setTimeout(()=>targets.forEach(el=>el.classList.add("in")),1500); // fallback: force-reveal
+  }
+  // close mobile menu on nav click
+  links.forEach(l=>l.addEventListener("click",()=>$("nav.side").classList.remove("open")));
+});
+</script>
+</body>
+</html>
